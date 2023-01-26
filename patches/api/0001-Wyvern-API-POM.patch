@@ -1,0 +1,67 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: LeeAnhh <summertwilighttimes@gmail>
+Date: Wed, 25 Jan 2023 20:25:36 +0700
+Subject: [PATCH] Wyvern-API POM
+
+
+diff --git a/pom.xml b/pom.xml
+new file mode 100644
+index 0000000000000000000000000000000000000000..fa65661b8681b6d549f4f1799ee4df95c0d8a819
+--- /dev/null
++++ b/pom.xml
+@@ -0,0 +1,54 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<project xmlns="http://maven.apache.org/POM/4.0.0"
++         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
++         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
++    <modelVersion>4.0.0</modelVersion>
++
++    <groupId>com.wyvern</groupId>
++    <artifactId>wyvern-api</artifactId>
++    <version>1.16.5</version>
++    <packaging>jar</packaging>
++
++    <name>Wyvern-API</name>
++
++    <properties>
++        <java.version>19</java.version>
++        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
++    </properties>
++
++    <build>
++        <plugins>
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-compiler-plugin</artifactId>
++                <version>3.8.1</version>
++                <configuration>
++                    <source>${java.version}</source>
++                    <target>${java.version}</target>
++                </configuration>
++            </plugin>
++            <plugin>
++                <groupId>org.apache.maven.plugins</groupId>
++                <artifactId>maven-shade-plugin</artifactId>
++                <version>3.2.4</version>
++                <executions>
++                    <execution>
++                        <phase>package</phase>
++                        <goals>
++                            <goal>shade</goal>
++                        </goals>
++                        <configuration>
++                            <createDependencyReducedPom>false</createDependencyReducedPom>
++                        </configuration>
++                    </execution>
++                </executions>
++            </plugin>
++        </plugins>
++        <resources>
++            <resource>
++                <directory>src/main/resources</directory>
++                <filtering>true</filtering>
++            </resource>
++        </resources>
++    </build>
++</project>
+\ No newline at end of file
