@@ -1,0 +1,36 @@
+#!/usr/bin/env bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+scriptsBase="$(dirname "$SOURCE")"
+. "$scriptsBase/init"
+
+function rebuildPatches {
+    local target="$1"
+    local patch_folder="$patchDir/$2"
+
+    delete "$patch_folder"
+
+    cd "$basedir/$target/"
+    if [[ "$target" == "${NAME}-Server" ]]; then
+        git format-patch --diff-algorithm=minimal --no-signature --zero-commit --full-index --no-stat -N -o "$patch_folder" `git rev-list --max-parents=0 HEAD` > /dev/null 2>&1
+    else
+        git format-patch --diff-algorithm=minimal --no-signature --zero-commit --full-index --no-stat -N -o "$patch_folder" --root > /dev/null 2>&1
+    fi
+    echo "  Saved the patches of $target to $patch_folder"
+}
+
+(
+
+    echo ""
+    echo "Rebuilding patches..."
+    echo ""
+
+    rebuildPatches "${NAME}-Server" server
+    rebuildPatches "${NAME}-API" api
+
+) || exit 1

@@ -1,0 +1,69 @@
+#!/usr/bin/env bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+scriptsBase="$(dirname "$SOURCE")"
+. "$scriptsBase/init"
+
+(
+
+	previousVersion=""
+	currentVersion="1.9.0"
+
+	extractClassOutput="$quiltflower/classes"
+	srcOutput="$quiltflower/minecraft/src/main/"
+	classOutput="$srcOutput/java"
+	resourcesOutput="$srcOutput/resources"
+
+	jar="$quiltflower/Server-${VERSION}.jar"
+	previousDecompiler="$quiltflower/quiltflower-$previousVersion.jar"
+	decompiler="$quiltflower/quiltflower-$currentVersion.jar"
+
+	downloadURL="https://github.com/QuiltMC/quiltflower/releases/download/$currentVersion/quiltflower-$currentVersion.jar"
+
+    mkdir -p "$extractClassOutput"
+    mkdir -p "$classOutput"
+    mkdir -p "$resourcesOutput"
+
+    echo ""
+    echo "Extracting NMS classes..."
+      delete "$extractClassOutput" "mkdir"
+      cd "$extractClassOutput"
+
+      jar xf "$jar" net/minecraft com/mojang/math
+
+      if [ "$?" != "0" ]; then
+        cd "$basedir"
+        echo "  Failed to extract NMS classes."
+      else
+		echo "  Extracting assets and data..."
+		  delete "$resourcesOutput" "mkdir"
+		  cd "$resourcesOutput"
+
+		  jar xf "$jar" data assets log4j2.xml Log4j-levels.xsd pack.mcmeta version.json
+
+		  if [ "$?" != "0" ]; then
+			cd "$basedir"
+			echo "  Failed to extract assets and data."
+		  else
+			echo "  Decompiling classes..."
+			echo ""
+			  cd "$basedir"
+			  delete "$previousDecompiler"
+			  curl -L -o $decompiler $downloadURL > /dev/null 2>&1
+
+			  java -jar "$decompiler" -dgs=1 -hdc=0 -asc=1 -rsy=1 -aoa=1 --legacy-saving -jvn=1 -ind='    ' "$extractClassOutput" "$classOutput"
+
+			  if [ "$?" != "0" ]; then
+				cd "$basedir"
+				echo "  Failed to decompile classes."
+			  fi
+		  fi
+	  fi
+	  exit 1
+
+) || exit 1

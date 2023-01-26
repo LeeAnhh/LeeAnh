@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+scriptsBase="$(dirname "$SOURCE")"
+. "$scriptsBase/init"
+
+(
+
+    if [[ "$1" != "fast" ]]; then
+        "$scriptsBase/remap"
+        "$scriptsBase/decompile"
+    fi
+    "$scriptsBase/apply"
+
+) || exit 1

@@ -1,0 +1,71 @@
+#!/usr/bin/env bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+scriptsBase="$(dirname "$SOURCE")"
+. "$scriptsBase/init"
+
+function updateDecompiler {
+    local previousVersion="$(cat "$scriptsBase/decompile" | grep -m1 previousVersion | cut --complement -d '"' -f 1,3)"
+    local currentVersion="$(cat "$scriptsBase/decompile" | grep -m1 currentVersion | cut --complement -d '"' -f 1,3)"
+    local newVersion="$1"
+
+    local changes="Upgraded from version $currentVersion to version $newVersion."
+    local disclaimer="QuiltFlower has released updates that appear to apply correctly."
+
+    if (version_lt "$currentVersion" "$newVersion"); then
+        echo "No newer version available"
+        echo "Leaving..."
+    else
+		change_line "previousVersion=\"$previousVersion\"" "previousVersion=\"$currentVersion\"" "$scriptsBase/decompile"
+		change_line "currentVersion=\"$currentVersion\"" "currentVersion=\"$newVersion\"" "$scriptsBase/decompile"
+
+		cd "$basedir"
+		git add "$scriptsBase/decompile"
+
+		if [ -n "$2" ]; then
+			disclaimer="$2"
+		fi
+
+		local log="Updated QuiltFlower\n\n${disclaimer} ${changes}"
+		echo -e "$log" | git commit -F -
+	fi
+    exit 0
+}
+
+function updateRemapper {
+    cd "$remapper"
+    git fetch origin master && git reset --hard origin/master
+    cd "$basedir"
+    git add "$remapper"
+
+    local remapperChange="$(changelog $remapper)"
+    local changes=""
+    local disclaimer="MC-Remapper has released updates that appear to apply correctly."
+
+    if [ -n "$remapperChange" ]; then
+        changes="Changes:\n$remapperChange"
+    fi
+
+    if [ -n "$1" ]; then
+        disclaimer="$1"
+    fi
+
+    local log="Updated MC-Remapper\n\n${disclaimer}\n\n${changes}"
+    echo -e "$log" | git commit -F -
+    exit 0
+}
+
+(
+
+    if [[ "$1" == "decompiler" ]]; then
+        updateDecompiler "$2" "$3"
+    elif [[ "$1" == "remapper" ]]; then
+        updateRemapper "$2"
+    fi
+
+) || exit 1

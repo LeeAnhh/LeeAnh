@@ -1,0 +1,35 @@
+#!/usr/bin/env bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+scriptsBase="$(dirname "$SOURCE")"
+. "$scriptsBase/init"
+
+(
+
+	bin="$remapper/build/install/MC-Remapper/bin"
+	jar="$quiltflower/Server-${VERSION}.jar"
+	
+	if [[ ! -f "$basedir/.git" ]]; then
+		git init --quiet
+	fi
+
+    if [[ ! -d "$bin" ]]; then
+		git submodule --quiet add -f https://github.com/HeartPattern/MC-Remapper.git work/MC-Remapper
+        git submodule --quiet  update --init --recursive
+    fi
+	
+    cd "$remapper"
+    ./gradlew installDist > /dev/null 2>&1
+
+    cd "$bin"
+    delete "$quiltflower" "mkdir"
+	
+	echo ""
+    ./MC-Remapper server ${VERSION} --output $jar --fixlocalvar=rename --thread 6
+
+) || exit 1

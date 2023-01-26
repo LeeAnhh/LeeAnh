@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+
+NAME="Wyvern"
+VERSION="1.16.5"
+
+basedir="$(cd $scriptsBase/../ && pwd -P)"
+patchDir="$basedir/patches"
+workdir="$basedir/work"
+quiltflower="$workdir/QuiltFlower"
+remapper="$workdir/MC-Remapper"
+
+function change_line {
+    local OLD_LINE_PATTERN="$1"
+    local NEW_LINE="$2"
+    local FILE="$3"
+    local NEW=$(echo "${NEW_LINE}" | sed 's/\//\\\//g')
+
+    touch "${FILE}"
+    sed -i '/'"${OLD_LINE_PATTERN}"'/{s/.*/'"${NEW}"'/;h};${x;/./{x;q100};x}' "${FILE}"
+
+    if [[ $? -ne 100 ]] && [[ ${NEW_LINE} != '' ]]; then
+        echo -e "${NEW_LINE}" >> "${FILE}"
+    fi
+}
+
+function version_lt() {
+    test "$(echo -e "$@" | tr " " "\n" | sort -rV | head -n 1)" == "$1"
+}
+
+function changelog {
+    local base=$(git ls-tree HEAD $1  | cut -d' ' -f3 | cut -f1)
+    cd $1 && git log --oneline ${base}...HEAD
+}
+
+function delete {
+    if [[ -e "$1" ]] || [[ -d "$1" ]]; then
+        rm -rf "$1"
+    fi
+	if [[ "$2" == "mkdir" ]]; then
+		mkdir -p "$1"
+	fi
+}
+
+function enableCommitSigning {
+    if [[ "$(git config commit.gpgsign || echo "false")" == "true" ]]; then
+        git config commit.gpgsign true
+    fi
+}

@@ -1,0 +1,62 @@
+#!/usr/bin/env bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+scriptsBase="$(dirname "$SOURCE")"
+. "$scriptsBase/init"
+
+function applyPatches {
+    local target="$1"
+    local patch_folder="$2"
+	  
+    echo ""
+    delete "$basedir/$target" mkdir
+
+    cd "$basedir/$target"
+    git init > /dev/null 2>&1
+
+    if [[ "$target" ==  "${NAME}-Server" ]]; then
+        cp -r "$quiltflower/minecraft/src" ./
+        git add . > /dev/null 2>&1
+        git commit -m "Created $1" > /dev/null 2>&1
+    fi
+
+    git config commit.gpgsign false
+
+    echo "  Applying patches to $target... This can take a long time."
+    echo ""
+
+    git am --abort >/dev/null 2>&1
+    git am --3way --whitespace=fix "$basedir/patches/$patch_folder/"*.patch
+
+    if [ "$?" != "0" ]; then
+        echo ""
+        echo "       Something did not apply cleanly to $target."
+        echo "  Please review above details to find a way to resolve that"
+    else
+        echo ""
+        echo "  Patches applied cleanly to $target"
+    fi
+}
+
+(
+
+    cd "$basedir"
+	if [ ! -d "$quiltflower/minecraft/src" ]; then
+		echo "Failed to apply patches"
+		enableCommitSigning
+    else
+		echo ""
+		echo "Applying patches to Minecraft... "
+
+		applyPatches "${NAME}-Server" "server"
+		applyPatches "${NAME}-API" "api"
+		enableCommitSigning 
+	fi
+	exit 1
+
+) || exit 1

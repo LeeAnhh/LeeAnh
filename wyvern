@@ -1,0 +1,31 @@
+#!/usr/bin/env bash
+
+SOURCE="${BASH_SOURCE[0]}"
+while [ -h "$SOURCE" ]; do
+    DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
+    SOURCE="$(readlink "$SOURCE")"
+    [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+scriptsBase="$(dirname "$SOURCE")/scripts"
+. "$scriptsBase/init"
+
+set -e
+case "$1" in
+        "apply" | "patch" | "build" )
+        "$scriptsBase/build" "$2"
+    ;;
+        "rebuild" | "rb")
+        "$scriptsBase/rebuildpatches"
+    ;;
+        "update" | "upgrade")
+        "$scriptsBase/update" "$2" "$3" "$4"
+    ;;
+    *)
+        echo ""
+        echo "  List of commands:"
+        echo "    apply    │  decompile then apply patches on top of Minecraft"
+        echo "    rebuild  │  rebuild the patches"
+        echo "    update   │  update the decompiler or the remapper"
+    ;;
+esac
+set +e
