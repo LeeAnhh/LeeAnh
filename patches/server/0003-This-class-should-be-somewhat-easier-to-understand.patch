@@ -1,0 +1,254 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: LeeAnhh <summertwilighttimes@gmail.com>
+Date: Mon, 30 Jan 2023 18:05:05 +0700
+Subject: [PATCH] This class should be somewhat easier-to-understand
+
+I didn't say that it will look clean tho
+
+diff --git a/src/main/java/net/minecraft/BlockUtil.java b/src/main/java/net/minecraft/BlockUtil.java
+index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a388721b1a 100644
+--- a/src/main/java/net/minecraft/BlockUtil.java
++++ b/src/main/java/net/minecraft/BlockUtil.java
+@@ -4,143 +4,139 @@ import com.google.common.annotations.VisibleForTesting;
+ import com.mojang.datafixers.util.Pair;
+ import it.unimi.dsi.fastutil.ints.IntArrayList;
+ import it.unimi.dsi.fastutil.ints.IntStack;
+-import java.util.function.Predicate;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.core.Direction;
+
++import java.util.function.Predicate;
++
+ public class BlockUtil {
+     public static BlockUtil.FoundRectangle getLargestRectangleAround(
+-        BlockPos debug0, Direction.Axis debug1, int debug2, Direction.Axis debug3, int debug4, Predicate<BlockPos> debug5
+-    ) {
+-        BlockPos.MutableBlockPos blockpos$mutableblockpos = debug0.mutable();
+-        Direction direction = Direction.get(Direction.AxisDirection.NEGATIVE, debug1);
+-        Direction direction1 = direction.getOpposite();
+-        Direction direction2 = Direction.get(Direction.AxisDirection.NEGATIVE, debug3);
+-        Direction direction3 = direction2.getOpposite();
+-        int i = getLimit(debug5, blockpos$mutableblockpos.set(debug0), direction, debug2);
+-        int j = getLimit(debug5, blockpos$mutableblockpos.set(debug0), direction1, debug2);
+-        int k = i;
+-        BlockUtil.IntBounds[] ablockutil$intbounds = new BlockUtil.IntBounds[i + 1 + j];
+-        ablockutil$intbounds[i] = new BlockUtil.IntBounds(
+-            getLimit(debug5, blockpos$mutableblockpos.set(debug0), direction2, debug4),
+-            getLimit(debug5, blockpos$mutableblockpos.set(debug0), direction3, debug4)
+-        );
+-        int l = ablockutil$intbounds[i].min;
+-
+-        for(int i1 = 1; i1 <= i; ++i1) {
+-            BlockUtil.IntBounds blockutil$intbounds = ablockutil$intbounds[k - (i1 - 1)];
+-            ablockutil$intbounds[k - i1] = new BlockUtil.IntBounds(
+-                getLimit(debug5, blockpos$mutableblockpos.set(debug0).move(direction, i1), direction2, blockutil$intbounds.min),
+-                getLimit(debug5, blockpos$mutableblockpos.set(debug0).move(direction, i1), direction3, blockutil$intbounds.max)
+-            );
++            final BlockPos blockPos, final Direction.Axis axis1, final int RangeOfBlocks1,
++            final Direction.Axis axis2, final int RangeOfBlocks2,
++            final Predicate<BlockPos> predicate) {
++
++        final Direction direction1 = Direction.get(Direction.AxisDirection.NEGATIVE, axis1);
++        final Direction oppos_direction1 = direction1.getOpposite();
++        final Direction direction2 = Direction.get(Direction.AxisDirection.NEGATIVE, axis2);
++        final Direction oppos_direction2 = direction2.getOpposite();
++
++        final BlockPos.MutableBlockPos mutableBPos = blockPos.mutable().set(blockPos);
++        final int direction1_RANGE_LIMIT = getLimit(predicate, mutableBPos, direction1, RangeOfBlocks1);
++        final int oppos_direction1_RANGE_LIMIT = getLimit(predicate, mutableBPos, oppos_direction1, RangeOfBlocks1);
++        final int direction2_RANGE_LIMIT = getLimit(predicate, mutableBPos, direction2, RangeOfBlocks2);
++        final int oppos_direction2_RANGE_LIMIT = getLimit(predicate, mutableBPos, oppos_direction2, RangeOfBlocks2);
++
++        final BlockUtil.IntBounds[] intBounds = new BlockUtil.IntBounds[direction1_RANGE_LIMIT + 1 + oppos_direction1_RANGE_LIMIT];
++        intBounds[direction1_RANGE_LIMIT] = new BlockUtil.IntBounds(direction2_RANGE_LIMIT, oppos_direction2_RANGE_LIMIT);
++
++        for (int direction1_RANGE = 1; direction1_RANGE <= direction1_RANGE_LIMIT; ++direction1_RANGE) {
++
++            final BlockPos.MutableBlockPos moved_mutableBPos = mutableBPos.move(direction1, direction1_RANGE);
++            final BlockUtil.IntBounds intBound = intBounds[direction1_RANGE_LIMIT - (direction1_RANGE - 1)];
++            final int min = getLimit(predicate, moved_mutableBPos, direction2, intBound.min());
++            final int max = getLimit(predicate, moved_mutableBPos, oppos_direction2, intBound.max());
++
++            intBounds[direction1_RANGE_LIMIT - direction1_RANGE] = new BlockUtil.IntBounds(min, max);
+         }
+
+-        for(int l2 = 1; l2 <= j; ++l2) {
+-            BlockUtil.IntBounds blockutil$intbounds2 = ablockutil$intbounds[k + l2 - 1];
+-            ablockutil$intbounds[k + l2] = new BlockUtil.IntBounds(
+-                getLimit(debug5, blockpos$mutableblockpos.set(debug0).move(direction1, l2), direction2, blockutil$intbounds2.min),
+-                getLimit(debug5, blockpos$mutableblockpos.set(debug0).move(direction1, l2), direction3, blockutil$intbounds2.max)
+-            );
++        for (int oppos_direct1_RANGE = 1; oppos_direct1_RANGE <= oppos_direction1_RANGE_LIMIT; ++oppos_direct1_RANGE) {
++
++            final BlockPos.MutableBlockPos moved_mutableBPos = mutableBPos.move(oppos_direction1, oppos_direct1_RANGE);
++            final BlockUtil.IntBounds intBound = intBounds[direction1_RANGE_LIMIT + oppos_direct1_RANGE - 1];
++            final int min = getLimit(predicate, moved_mutableBPos, direction2, intBound.min());
++            final int max = getLimit(predicate, moved_mutableBPos, oppos_direction2, intBound.max());
++
++            intBounds[direction1_RANGE_LIMIT + oppos_direct1_RANGE] = new BlockUtil.IntBounds(min, max);
+         }
+
+-        int i3 = 0;
+-        int j3 = 0;
+-        int j1 = 0;
+-        int k1 = 0;
+-        int[] aint = new int[ablockutil$intbounds.length];
+-
+-        for(int l1 = l; l1 >= 0; --l1) {
+-            for(int i2 = 0; i2 < ablockutil$intbounds.length; ++i2) {
+-                BlockUtil.IntBounds blockutil$intbounds1 = ablockutil$intbounds[i2];
+-                int j2 = l - blockutil$intbounds1.min;
+-                int k2 = l + blockutil$intbounds1.max;
+-                aint[i2] = l1 >= j2 && l1 <= k2 ? k2 + 1 - l1 : 0;
++        int ministry = 0;
++        int department = 0;
++
++        int axis1Size = 0;
++        int axis2Size = 0;
++
++        final int[] ints = new int[intBounds.length];
++
++        for (int copyCat = direction2_RANGE_LIMIT; copyCat >= 0; --copyCat) {
++            for (int index = 0; index < intBounds.length; ++index) {
++
++                final BlockUtil.IntBounds intBound = intBounds[index];
++                final boolean isInRange = (copyCat >= direction2_RANGE_LIMIT - intBound.min() && copyCat <= direction2_RANGE_LIMIT + intBound.max());
++
++                ints[index] = isInRange ? direction2_RANGE_LIMIT + intBound.max() + 1 - copyCat : 0;
+             }
+
+-            Pair<BlockUtil.IntBounds, Integer> pair = getMaxRectangleLocation(aint);
+-            BlockUtil.IntBounds blockutil$intbounds3 = (BlockUtil.IntBounds)pair.getFirst();
+-            int k3 = 1 + blockutil$intbounds3.max - blockutil$intbounds3.min;
+-            int l3 = pair.getSecond();
+-            if (k3 * l3 > j1 * k1) {
+-                i3 = blockutil$intbounds3.min;
+-                j3 = l1;
+-                j1 = k3;
+-                k1 = l3;
++            final Pair<BlockUtil.IntBounds, Integer> pair = getMaxRectangleLocation(ints);
++            final BlockUtil.IntBounds pairIntBounds = pair.getFirst();
++            final int side1_length = pair.getSecond();
++            final int side2_length = 1 + pairIntBounds.max() - pairIntBounds.min();
++            final boolean isBiggerArea = side2_length * side1_length > axis1Size * axis2Size;
++
++            if (isBiggerArea) {
++                ministry = pairIntBounds.min();
++                department = copyCat;
++
++                axis1Size = side2_length;
++                axis2Size = side1_length;
+             }
+         }
+
+-        return new BlockUtil.FoundRectangle(debug0.relative(debug1, i3 - k).relative(debug3, j3 - l), j1, k1);
++        final int direction1_BLOCK_RANGE = ministry - direction1_RANGE_LIMIT;
++        final int direction2_BLOCK_RANGE = department - direction2_RANGE_LIMIT;
++        final BlockPos cornerPosition = blockPos.relative(axis1, direction1_BLOCK_RANGE).relative(axis2, direction2_BLOCK_RANGE);
++
++        return new BlockUtil.FoundRectangle(cornerPosition, axis1Size, axis2Size);
+     }
+
+-    private static int getLimit(Predicate<BlockPos> debug0, BlockPos.MutableBlockPos debug1, Direction debug2, int debug3) {
++    private static int getLimit(final Predicate<BlockPos> predicate, final BlockPos.MutableBlockPos mutableBPos, final Direction direction, final int range) {
+         int i = 0;
+-
+-        while(i < debug3 && debug0.test(debug1.move(debug2))) {
+-            ++i;
+-        }
++        while (i < range && predicate.test(mutableBPos.move(direction))) ++i;
+
+         return i;
+     }
+
+     @VisibleForTesting
+-    static Pair<BlockUtil.IntBounds, Integer> getMaxRectangleLocation(int[] debug0) {
+-        int i = 0;
+-        int j = 0;
+-        int k = 0;
+-        IntStack intstack = new IntArrayList();
+-        intstack.push(0);
+-
+-        for(int l = 1; l <= debug0.length; ++l) {
+-            int i1 = l == debug0.length ? 0 : debug0[l];
+-
+-            while(!intstack.isEmpty()) {
+-                int j1 = debug0[intstack.topInt()];
+-                if (i1 >= j1) {
+-                    intstack.push(l);
++    private static Pair<BlockUtil.IntBounds, Integer> getMaxRectangleLocation(final int[] ints) {
++        int min = 0;
++        int max = 0;
++        int side_length = 0;
++
++        IntStack intStack = new IntArrayList();
++        intStack.push(0);
++
++        for (int index = 1; index <= ints.length; ++index) {
++            final int checker = (index == ints.length ? 0 : ints[index]);
++
++            while (!intStack.isEmpty()) {
++                final int origin_topInt = ints[intStack.topInt()];
++
++                if (checker >= origin_topInt) {
++                    intStack.push(index);
+                     break;
+                 }
+
+-                intstack.popInt();
+-                int k1 = intstack.isEmpty() ? 0 : intstack.topInt() + 1;
+-                if (j1 * (l - k1) > k * (j - i)) {
+-                    j = l;
+-                    i = k1;
+-                    k = j1;
++                intStack.popInt();
++                final int new_topInt = intStack.isEmpty() ? 0 : intStack.topInt() + 1;
++                if (origin_topInt * (index - new_topInt) > side_length * (max - min)) {
++                    min = new_topInt;
++                    max = index;
++                    side_length = origin_topInt;
+                 }
+             }
+
+-            if (intstack.isEmpty()) {
+-                intstack.push(l);
++            if (intStack.isEmpty()) {
++                intStack.push(index);
+             }
+         }
+
+-        return new Pair(new BlockUtil.IntBounds(i, j - 1), k);
+-    }
+-
+-    public static class FoundRectangle {
+-        public final BlockPos minCorner;
+-        public final int axis1Size;
+-        public final int axis2Size;
++        final IntBounds intBound = new BlockUtil.IntBounds(min, max - 1);
+
+-        public FoundRectangle(BlockPos debug1, int debug2, int debug3) {
+-            this.minCorner = debug1;
+-            this.axis1Size = debug2;
+-            this.axis2Size = debug3;
+-        }
++        return new Pair<>(intBound, side_length);
+     }
+
+-    public static class IntBounds {
+-        public final int min;
+-        public final int max;
+-
+-        public IntBounds(int debug1, int debug2) {
+-            this.min = debug1;
+-            this.max = debug2;
+-        }
++    public record FoundRectangle(BlockPos corner, int axis1Size, int axis2Size) {
++    }
+
+-        @Override
+-        public String toString() {
+-            return "IntBounds{min=" + this.min + ", max=" + this.max + '}';
+-        }
++    private record IntBounds(int min, int max) {
+     }
+ }
