@@ -1,0 +1,737 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: LeeAnhh <summertwilighttimes@gmail.com>
+Date: Mon, 30 Jan 2023 18:12:12 +0700
+Subject: [PATCH] CrashReport + its category class should make more sense now
+
+
+diff --git a/src/main/java/net/minecraft/CrashReport.java b/src/main/java/net/minecraft/CrashReport.java
+index 335e986c3a99cbb3c73e819630a9336f2d6510ca..1b48a3de1a3214b9bc0757caab8aeb0fe256b94c 100644
+--- a/src/main/java/net/minecraft/CrashReport.java
++++ b/src/main/java/net/minecraft/CrashReport.java
+@@ -1,68 +1,124 @@
+ package net.minecraft;
+
+ import com.google.common.collect.Lists;
+-import java.io.File;
+-import java.io.FileOutputStream;
+-import java.io.OutputStreamWriter;
+-import java.io.PrintWriter;
+-import java.io.StringWriter;
+-import java.io.Writer;
++import org.apache.commons.io.IOUtils;
++import org.apache.commons.lang3.ArrayUtils;
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
++
++import java.io.*;
+ import java.nio.charset.StandardCharsets;
+ import java.text.SimpleDateFormat;
+ import java.util.Date;
+ import java.util.List;
+ import java.util.concurrent.CompletionException;
+-import java.util.stream.Collectors;
+-import org.apache.commons.io.IOUtils;
+-import org.apache.commons.lang3.ArrayUtils;
+-import org.apache.logging.log4j.LogManager;
+-import org.apache.logging.log4j.Logger;
+
+ public class CrashReport {
+     private static final Logger LOGGER = LogManager.getLogger();
+     private final String title;
+     private final Throwable exception;
+-    private final CrashReportCategory systemDetails = new CrashReportCategory(this, "System Details");
++    private final CrashReportCategory systemDetails = new CrashReportCategory("System Details");
+     private final List<CrashReportCategory> details = Lists.newArrayList();
+     private File saveFile;
+     private boolean trackingStackTrace = true;
+     private StackTraceElement[] uncategorizedStackTrace = new StackTraceElement[0];
+
+-    public CrashReport(String debug1, Throwable debug2) {
+-        this.title = debug1;
+-        this.exception = debug2;
++    public CrashReport(final String title, final Throwable exception) {
++        this.title = title;
++        this.exception = exception;
+         this.initDetails();
+     }
+
++    private static String getErrorComment() {
++        final String[] astring = new String[]{
++                "Who set us up the TNT?",
++                "Everything's going to plan. No, really, that was supposed to happen.",
++                "Uh... Did I do that?",
++                "Oops.",
++                "Why did you do that?",
++                "I feel sad now :(",
++                "My bad.",
++                "I'm sorry, Dave.",
++                "I let you down. Sorry :(",
++                "On the bright side, I bought you a teddy bear!",
++                "Daisy, daisy...",
++                "Oh - I know what I did wrong!",
++                "Hey, that tickles! Hehehe!",
++                "I blame Dinnerbone.",
++                "You should try our sister game, Minceraft!",
++                "Don't be sad. I'll do better next time, I promise!",
++                "Don't be sad, have a hug! <3",
++                "I just don't know what went wrong :(",
++                "Shall we play a game?",
++                "Quite honestly, I wouldn't worry myself about that.",
++                "I bet Cylons wouldn't have this problem.",
++                "Sorry :(",
++                "Surprise! Haha. Well, this is awkward.",
++                "Would you like a cupcake?",
++                "Hi. I'm Minecraft, and I'm a crashaholic.",
++                "Ooh. Shiny.",
++                "This doesn't make any sense!",
++                "Why is it breaking :(",
++                "Don't do that.",
++                "Ouch. That hurt :(",
++                "You're mean.",
++                "This is a token for 1 free hug. Redeem at your nearest Mojangsta: [~~HUG~~]",
++                "There are four lights!",
++                "But it works on my machine."
++        };
++
++        try {
++            return astring[(int) (Util.getNanos() % (long) astring.length)];
++        } catch (Throwable throwable) {
++            return "Witty comment unavailable :(";
++        }
++    }
++
++    public static CrashReport forThrowable(Throwable throwable, final String title) {
++        while (throwable instanceof CompletionException && throwable.getCause() != null) {
++            throwable = throwable.getCause();
++        }
++
++        CrashReport crashreport;
++        if (throwable instanceof final ReportedException exception) {
++            crashreport = exception.getReport();
++        } else {
++            crashreport = new CrashReport(title, throwable);
++        }
++
++        return crashreport;
++    }
++
++    public static void preload() {
++        new CrashReport("Don't panic!", new Throwable()).getFriendlyReport();
++    }
++
+     private void initDetails() {
+         this.systemDetails.setDetail("Minecraft Version", () -> SharedConstants.getCurrentVersion().getName());
+         this.systemDetails.setDetail("Minecraft Version ID", () -> SharedConstants.getCurrentVersion().getId());
+-        this.systemDetails
+-            .setDetail(
+-                "Operating System",
+-                () -> System.getProperty("os.name") + " (" + System.getProperty("os.arch") + ") version " + System.getProperty("os.version")
+-            );
++        this.systemDetails.setDetail("Operating System", () ->
++                System.getProperty("os.name") + " (" + System.getProperty("os.arch") + ") version " + System.getProperty("os.version"));
+         this.systemDetails.setDetail("Java Version", () -> System.getProperty("java.version") + ", " + System.getProperty("java.vendor"));
+-        this.systemDetails
+-            .setDetail(
+-                "Java VM Version",
+-                () -> System.getProperty("java.vm.name") + " (" + System.getProperty("java.vm.info") + "), " + System.getProperty("java.vm.vendor")
+-            );
++        this.systemDetails.setDetail("Java VM Version", ()
++                -> System.getProperty("java.vm.name") + " (" + System.getProperty("java.vm.info") + "), " + System.getProperty("java.vm.vendor"));
+         this.systemDetails.setDetail("Memory", () -> {
+-            Runtime runtime = Runtime.getRuntime();
+-            long i = runtime.maxMemory();
+-            long j = runtime.totalMemory();
+-            long k = runtime.freeMemory();
+-            long l = i / 1024L / 1024L;
+-            long i1 = j / 1024L / 1024L;
+-            long j1 = k / 1024L / 1024L;
+-            return k + " bytes (" + j1 + " MB) / " + j + " bytes (" + i1 + " MB) up to " + i + " bytes (" + l + " MB)";
++
++            final long maxMem = Runtime.getRuntime().maxMemory();
++            final long totalMem = Runtime.getRuntime().totalMemory();
++            final long freeMem = Runtime.getRuntime().freeMemory();
++
++            final long maxMemMB = maxMem / 1024L / 1024L;
++            final long totalMemMB = totalMem / 1024L / 1024L;
++            final long freeMemMB = freeMem / 1024L / 1024L;
++
++            return freeMem + " bytes (" + freeMemMB + " MB) / " + totalMem + " bytes (" + totalMemMB + " MB) up to " + maxMem + " bytes (" + maxMemMB + " MB)";
+         });
+         this.systemDetails.setDetail("CPUs", Runtime.getRuntime().availableProcessors());
+         this.systemDetails.setDetail("JVM Flags", () -> {
+-            List<String> list = Util.getVmArguments().collect(Collectors.toList());
+-            return String.format("%d total; %s", list.size(), list.stream().collect(Collectors.joining(" ")));
++            final List<String> list = Util.getVmArguments().toList();
++            return String.format("%d total; %s", list.size(), String.join(" ", list));
+         });
++        this.systemDetails.setDetail("Wyvern", "A potentially good Minecraft server application");
+     }
+
+     public String getTitle() {
+@@ -73,30 +129,30 @@ public class CrashReport {
+         return this.exception;
+     }
+
+-    public void getDetails(StringBuilder debug1) {
+-        if ((this.uncategorizedStackTrace == null || this.uncategorizedStackTrace.length <= 0) && !this.details.isEmpty()) {
+-            this.uncategorizedStackTrace = (StackTraceElement[])ArrayUtils.subarray(this.details.get(0).getStacktrace(), 0, 1);
++    public void getDetails(final StringBuilder builder) {
++        if ((this.uncategorizedStackTrace == null || this.uncategorizedStackTrace.length == 0) && !this.details.isEmpty()) {
++            this.uncategorizedStackTrace = ArrayUtils.subarray(this.details.get(0).getStacktrace(), 0, 1);
+         }
+
+         if (this.uncategorizedStackTrace != null && this.uncategorizedStackTrace.length > 0) {
+-            debug1.append("-- Head --\n");
+-            debug1.append("Thread: ").append(Thread.currentThread().getName()).append("\n");
+-            debug1.append("Stacktrace:\n");
++            builder.append("-- Head --\n");
++            builder.append("Thread: ").append(Thread.currentThread().getName()).append("\n");
++            builder.append("Stacktrace:\n");
+
+-            for(StackTraceElement stacktraceelement : this.uncategorizedStackTrace) {
+-                debug1.append("\t").append("at ").append(stacktraceelement);
+-                debug1.append("\n");
++            for (final StackTraceElement traceElement : this.uncategorizedStackTrace) {
++                builder.append("\t").append("at ").append(traceElement);
++                builder.append("\n");
+             }
+
+-            debug1.append("\n");
++            builder.append("\n");
+         }
+
+-        for(CrashReportCategory crashreportcategory : this.details) {
+-            crashreportcategory.getDetails(debug1);
+-            debug1.append("\n\n");
++        for (final CrashReportCategory category : this.details) {
++            category.getDetails(builder);
++            builder.append("\n\n");
+         }
+
+-        this.systemDetails.getDetails(debug1);
++        this.systemDetails.getDetails(builder);
+     }
+
+     public String getExceptionMessage() {
+@@ -115,175 +171,108 @@ public class CrashReport {
+             throwable.setStackTrace(this.exception.getStackTrace());
+         }
+
+-        String s;
++        String mess;
+         try {
+             stringwriter = new StringWriter();
+             printwriter = new PrintWriter(stringwriter);
+             throwable.printStackTrace(printwriter);
+-            s = stringwriter.toString();
++            mess = stringwriter.toString();
+         } finally {
+             IOUtils.closeQuietly(stringwriter);
+             IOUtils.closeQuietly(printwriter);
+         }
+
+-        return s;
++        return mess;
+     }
+
+     public String getFriendlyReport() {
+-        StringBuilder stringbuilder = new StringBuilder();
+-        stringbuilder.append("---- Minecraft Crash Report ----\n");
+-        stringbuilder.append("// ");
+-        stringbuilder.append(getErrorComment());
+-        stringbuilder.append("\n\n");
+-        stringbuilder.append("Time: ");
+-        stringbuilder.append(new SimpleDateFormat().format(new Date()));
+-        stringbuilder.append("\n");
+-        stringbuilder.append("Description: ");
+-        stringbuilder.append(this.title);
+-        stringbuilder.append("\n\n");
+-        stringbuilder.append(this.getExceptionMessage());
+-        stringbuilder.append("\n\nA detailed walkthrough of the error, its code path and all known details is as follows:\n");
+-
+-        for(int i = 0; i < 87; ++i) {
+-            stringbuilder.append("-");
+-        }
+-
+-        stringbuilder.append("\n\n");
+-        this.getDetails(stringbuilder);
+-        return stringbuilder.toString();
++        final StringBuilder builder = new StringBuilder();
++
++        builder.append("---- Wyvern Crash Report ----\n");
++        builder.append("// ");
++        builder.append(getErrorComment());
++        builder.append("\n\n");
++        builder.append("Time: ");
++        builder.append(new SimpleDateFormat().format(new Date()));
++        builder.append("\n");
++        builder.append("Description: ");
++        builder.append(this.title);
++        builder.append("\n\n");
++        builder.append(this.getExceptionMessage());
++        builder.append("\n\nA detailed walkthrough of the error, its code path and all known details is as follows:\n");
++        builder.append("-".repeat(87));
++        builder.append("\n\n");
++        this.getDetails(builder);
++
++        return builder.toString();
+     }
+
+-    public boolean saveToFile(File debug1) {
+-        if (this.saveFile != null) {
+-            return false;
+-        } else {
+-            if (debug1.getParentFile() != null) {
+-                debug1.getParentFile().mkdirs();
+-            }
++    public boolean saveToFile(final File file) {
++        if (this.saveFile == null) {
++            if (file.getParentFile() != null) file.getParentFile().mkdirs();
+
+             Writer writer = null;
+-
+-            boolean flag;
+             try {
+-                writer = new OutputStreamWriter(new FileOutputStream(debug1), StandardCharsets.UTF_8);
++                writer = new OutputStreamWriter(new FileOutputStream(file), StandardCharsets.UTF_8);
+                 writer.write(this.getFriendlyReport());
+-                this.saveFile = debug1;
++                this.saveFile = file;
+                 return true;
+             } catch (Throwable throwable) {
+-                LOGGER.error("Could not save crash report to {}", debug1, throwable);
+-                flag = false;
++                LOGGER.error("Could not save crash report to {}", file, throwable);
+             } finally {
+                 IOUtils.closeQuietly(writer);
+             }
+-
+-            return flag;
+         }
++        return false;
+     }
+
+     public CrashReportCategory getSystemDetails() {
+         return this.systemDetails;
+     }
+
+-    public CrashReportCategory addCategory(String debug1) {
+-        return this.addCategory(debug1, 1);
++    public CrashReportCategory addCategory(final String name) {
++        return this.addCategory(name, 1);
+     }
+
+-    public CrashReportCategory addCategory(String debug1, int debug2) {
+-        CrashReportCategory crashreportcategory = new CrashReportCategory(this, debug1);
++    public CrashReportCategory addCategory(final String name, final int fill_in_times) {
++        CrashReportCategory new_Category = new CrashReportCategory(name);
++
+         if (this.trackingStackTrace) {
+-            int i = crashreportcategory.fillInStackTrace(debug2);
+-            StackTraceElement[] astacktraceelement = this.exception.getStackTrace();
+-            StackTraceElement stacktraceelement = null;
+-            StackTraceElement stacktraceelement1 = null;
+-            int j = astacktraceelement.length - i;
+-            if (j < 0) {
+-                System.out.println("Negative index in crash report handler (" + astacktraceelement.length + "/" + i + ")");
+-            }
+
+-            if (astacktraceelement != null && 0 <= j && j < astacktraceelement.length) {
+-                stacktraceelement = astacktraceelement[j];
+-                if (astacktraceelement.length + 1 - i < astacktraceelement.length) {
+-                    stacktraceelement1 = astacktraceelement[astacktraceelement.length + 1 - i];
+-                }
+-            }
++            StackTraceElement[] stackTraceElements = this.exception.getStackTrace();
++            final int filled_stacktrace_size = new_Category.fillInStackTrace(fill_in_times);
++            final int stackTrace_length = stackTraceElements.length;
++            final int index = stackTrace_length - filled_stacktrace_size;
+
+-            this.trackingStackTrace = crashreportcategory.validateStackTrace(stacktraceelement, stacktraceelement1);
+-            if (i > 0 && !this.details.isEmpty()) {
+-                CrashReportCategory crashreportcategory1 = this.details.get(this.details.size() - 1);
+-                crashreportcategory1.trimStacktrace(i);
+-            } else if (astacktraceelement != null && astacktraceelement.length >= i && 0 <= j && j < astacktraceelement.length) {
+-                this.uncategorizedStackTrace = new StackTraceElement[j];
+-                System.arraycopy(astacktraceelement, 0, this.uncategorizedStackTrace, 0, this.uncategorizedStackTrace.length);
+-            } else {
+-                this.trackingStackTrace = false;
+-            }
+-        }
++            StackTraceElement consecutive_element_1 = null;
++            StackTraceElement consecutive_element_2 = null;
+
+-        this.details.add(crashreportcategory);
+-        return crashreportcategory;
+-    }
++            if (index < 0) {
++                System.out.println("Negative index in crash report handler (" + stackTrace_length + "/" + filled_stacktrace_size + ")");
++            } else if (index < stackTrace_length) {
++                int incr_index = index + 1;
+
+-    private static String getErrorComment() {
+-        String[] astring = new String[]{
+-            "Who set us up the TNT?",
+-            "Everything's going to plan. No, really, that was supposed to happen.",
+-            "Uh... Did I do that?",
+-            "Oops.",
+-            "Why did you do that?",
+-            "I feel sad now :(",
+-            "My bad.",
+-            "I'm sorry, Dave.",
+-            "I let you down. Sorry :(",
+-            "On the bright side, I bought you a teddy bear!",
+-            "Daisy, daisy...",
+-            "Oh - I know what I did wrong!",
+-            "Hey, that tickles! Hehehe!",
+-            "I blame Dinnerbone.",
+-            "You should try our sister game, Minceraft!",
+-            "Don't be sad. I'll do better next time, I promise!",
+-            "Don't be sad, have a hug! <3",
+-            "I just don't know what went wrong :(",
+-            "Shall we play a game?",
+-            "Quite honestly, I wouldn't worry myself about that.",
+-            "I bet Cylons wouldn't have this problem.",
+-            "Sorry :(",
+-            "Surprise! Haha. Well, this is awkward.",
+-            "Would you like a cupcake?",
+-            "Hi. I'm Minecraft, and I'm a crashaholic.",
+-            "Ooh. Shiny.",
+-            "This doesn't make any sense!",
+-            "Why is it breaking :(",
+-            "Don't do that.",
+-            "Ouch. That hurt :(",
+-            "You're mean.",
+-            "This is a token for 1 free hug. Redeem at your nearest Mojangsta: [~~HUG~~]",
+-            "There are four lights!",
+-            "But it works on my machine."
+-        };
++                consecutive_element_1 = stackTraceElements[index];
++                if (incr_index < stackTrace_length) consecutive_element_2 = stackTraceElements[incr_index];
++            }
+
+-        try {
+-            return astring[(int)(Util.getNanos() % (long)astring.length)];
+-        } catch (Throwable throwable) {
+-            return "Witty comment unavailable :(";
+-        }
+-    }
++            this.trackingStackTrace = new_Category.validateStackTrace(consecutive_element_1, consecutive_element_2);
+
+-    public static CrashReport forThrowable(Throwable debug0, String debug1) {
+-        while(debug0 instanceof CompletionException && debug0.getCause() != null) {
+-            debug0 = debug0.getCause();
+-        }
++            if (filled_stacktrace_size > 0 && !this.details.isEmpty()) {
++                final int topCategory_index = this.details.size() - 1;
++                CrashReportCategory topCategory = this.details.get(topCategory_index);
++                topCategory.trimStacktrace(filled_stacktrace_size);
+
+-        CrashReport crashreport;
+-        if (debug0 instanceof ReportedException) {
+-            crashreport = ((ReportedException)debug0).getReport();
+-        } else {
+-            crashreport = new CrashReport(debug1, debug0);
+-        }
++            } else if (0 <= index && index < stackTrace_length) {
++                this.uncategorizedStackTrace = new StackTraceElement[index];
++                System.arraycopy(stackTraceElements, 0, this.uncategorizedStackTrace, 0, this.uncategorizedStackTrace.length);
+
+-        return crashreport;
+-    }
++            } else {
++                this.trackingStackTrace = false;
++            }
++        }
+
+-    public static void preload() {
+-        new CrashReport("Don't panic!", new Throwable()).getFriendlyReport();
++        this.details.add(new_Category);
++        return new_Category;
+     }
+ }
+diff --git a/src/main/java/net/minecraft/CrashReportCategory.java b/src/main/java/net/minecraft/CrashReportCategory.java
+index 4ef150a57831512697ad0c5ea6309ae42a72a990..a9a699b5cc0482f31f00e7f389fc82450785515c 100644
+--- a/src/main/java/net/minecraft/CrashReportCategory.java
++++ b/src/main/java/net/minecraft/CrashReportCategory.java
+@@ -1,151 +1,153 @@
+ package net.minecraft;
+
+ import com.google.common.collect.Lists;
+-import java.util.List;
+-import javax.annotation.Nullable;
+ import net.minecraft.core.BlockPos;
+ import net.minecraft.world.level.block.state.BlockState;
+
++import javax.annotation.Nullable;
++import java.util.List;
++import java.util.Objects;
++
+ public class CrashReportCategory {
+-    private final CrashReport report;
+     private final String title;
+     private final List<CrashReportCategory.Entry> entries = Lists.newArrayList();
+     private StackTraceElement[] stackTrace = new StackTraceElement[0];
+
+-    public CrashReportCategory(CrashReport debug1, String debug2) {
+-        this.report = debug1;
++    public CrashReportCategory(final String debug2) {
+         this.title = debug2;
+     }
+
+-    public static String formatLocation(BlockPos debug0) {
+-        return formatLocation(debug0.getX(), debug0.getY(), debug0.getZ());
++    public static String formatLocation(final BlockPos bPos) {
++        return formatLocation(bPos.getX(), bPos.getY(), bPos.getZ());
+     }
+
+-    public static String formatLocation(int debug0, int debug1, int debug2) {
+-        StringBuilder stringbuilder = new StringBuilder();
++    public static String formatLocation(final int x, final int y, final int z) {
++        final StringBuilder builder = new StringBuilder();
+
+         try {
+-            stringbuilder.append(String.format("World: (%d,%d,%d)", debug0, debug1, debug2));
+-        } catch (Throwable throwable2) {
+-            stringbuilder.append("(Error finding world loc)");
++            builder.append(String.format("World: (%d,%d,%d)", x, y, z));
++        } catch (final Throwable throwable) {
++            builder.append("(Error finding world loc)");
+         }
+
+-        stringbuilder.append(", ");
++        builder.append(", ");
+
+         try {
+-            int i = debug0 >> 4;
+-            int j = debug2 >> 4;
+-            int k = debug0 & 15;
+-            int l = debug1 >> 4;
+-            int i1 = debug2 & 15;
+-            int j1 = i << 4;
+-            int k1 = j << 4;
+-            int l1 = (i + 1 << 4) - 1;
+-            int i2 = (j + 1 << 4) - 1;
+-            stringbuilder.append(String.format("Chunk: (at %d,%d,%d in %d,%d; contains blocks %d,0,%d to %d,255,%d)", k, l, i1, i, j, j1, k1, l1, i2));
+-        } catch (Throwable throwable1) {
+-            stringbuilder.append("(Error finding chunk loc)");
++            final int a = x & 15;
++            final int b = y >> 4;
++            final int c = z & 15;
++            final int d = x >> 4;
++            final int e = z >> 4;
++            final int f = d << 4;
++            final int g = e << 4;
++            final int h = (d + 1 << 4) - 1;
++            final int i = (e + 1 << 4) - 1;
++            builder.append(String.format("Chunk: (at %d,%d,%d in %d,%d; contains blocks %d,0,%d to %d,255,%d)", a, b, c, d, e, f, g, h, i));
++        } catch (final Throwable throwable) {
++            builder.append("(Error finding chunk loc)");
+         }
+
+-        stringbuilder.append(", ");
++        builder.append(", ");
+
+         try {
+-            int k2 = debug0 >> 9;
+-            int l2 = debug2 >> 9;
+-            int i3 = k2 << 5;
+-            int j3 = l2 << 5;
+-            int k3 = (k2 + 1 << 5) - 1;
+-            int l3 = (l2 + 1 << 5) - 1;
+-            int i4 = k2 << 9;
+-            int j4 = l2 << 9;
+-            int k4 = (k2 + 1 << 9) - 1;
+-            int j2 = (l2 + 1 << 9) - 1;
+-            stringbuilder.append(
+-                String.format("Region: (%d,%d; contains chunks %d,%d to %d,%d, blocks %d,0,%d to %d,255,%d)", k2, l2, i3, j3, k3, l3, i4, j4, k4, j2)
+-            );
+-        } catch (Throwable throwable) {
+-            stringbuilder.append("(Error finding world loc)");
++            final int a2 = x >> 9;
++            final int b2 = z >> 9;
++            final int c2 = a2 << 5;
++            final int d2 = b2 << 5;
++            final int e2 = (a2 + 1 << 5) - 1;
++            final int f2 = (b2 + 1 << 5) - 1;
++            final int g2 = a2 << 9;
++            final int h2 = b2 << 9;
++            final int i2 = (a2 + 1 << 9) - 1;
++            final int j2 = (b2 + 1 << 9) - 1;
++            builder.append(String.format("Region: (%d,%d; contains chunks %d,%d to %d,%d, blocks %d,0,%d to %d,255,%d)", a2, b2, c2, d2, e2, f2, g2, h2, i2, j2));
++        } catch (final Throwable throwable) {
++            builder.append("(Error finding world loc)");
+         }
+
+-        return stringbuilder.toString();
++        return builder.toString();
+     }
+
+-    public CrashReportCategory setDetail(String debug1, CrashReportDetail<String> debug2) {
++    public static void populateBlockDetails(final CrashReportCategory category, final BlockPos bPos, final @Nullable BlockState bState) {
++        if (bState != null) category.setDetail("Block", bState::toString);
++        category.setDetail("Block location", () -> formatLocation(bPos));
++    }
++
++    public CrashReportCategory setDetail(final String key, final CrashReportDetail<String> value) {
+         try {
+-            this.setDetail(debug1, debug2.call());
+-        } catch (Throwable throwable) {
+-            this.setDetailError(debug1, throwable);
++            this.setDetail(key, value.call());
++        } catch (final Throwable throwable) {
++            this.setDetailError(key, throwable);
+         }
+
+         return this;
+     }
+
+-    public CrashReportCategory setDetail(String debug1, Object debug2) {
+-        this.entries.add(new CrashReportCategory.Entry(debug1, debug2));
+-        return this;
++    public void setDetailError(final String key, final Throwable value) {
++        this.setDetail(key, value);
+     }
+
+-    public void setDetailError(String debug1, Throwable debug2) {
+-        this.setDetail(debug1, debug2);
++    public CrashReportCategory setDetail(final String key, final Object value) {
++        this.entries.add(new CrashReportCategory.Entry(key, value));
++        return this;
+     }
+
+-    public int fillInStackTrace(int debug1) {
+-        StackTraceElement[] astacktraceelement = Thread.currentThread().getStackTrace();
+-        if (astacktraceelement.length <= 0) {
+-            return 0;
+-        } else {
+-            this.stackTrace = new StackTraceElement[astacktraceelement.length - 3 - debug1];
+-            System.arraycopy(astacktraceelement, 3 + debug1, this.stackTrace, 0, this.stackTrace.length);
+-            return this.stackTrace.length;
+-        }
++    public int fillInStackTrace(final int fill_in_times) {
++        final StackTraceElement[] thread_Stacktrace = Thread.currentThread().getStackTrace();
++        if (thread_Stacktrace.length == 0) return 0;
++
++        this.stackTrace = new StackTraceElement[thread_Stacktrace.length - 3 - fill_in_times];
++        System.arraycopy(thread_Stacktrace, 3 + fill_in_times, this.stackTrace, 0, this.stackTrace.length);
++
++        return this.stackTrace.length;
+     }
+
+-    public boolean validateStackTrace(StackTraceElement debug1, StackTraceElement debug2) {
+-        if (this.stackTrace.length != 0 && debug1 != null) {
+-            StackTraceElement stacktraceelement = this.stackTrace[0];
+-            if (stacktraceelement.isNativeMethod() == debug1.isNativeMethod()
+-                && stacktraceelement.getClassName().equals(debug1.getClassName())
+-                && stacktraceelement.getFileName().equals(debug1.getFileName())
+-                && stacktraceelement.getMethodName().equals(debug1.getMethodName())) {
+-                if (debug2 != null != this.stackTrace.length > 1) {
++    public boolean validateStackTrace(final StackTraceElement concecutive_element_1, final StackTraceElement concecutive_element_2) {
++
++        if (this.stackTrace.length != 0 && concecutive_element_1 != null) {
++            final StackTraceElement originElement = this.stackTrace[0];
++
++            final boolean isNativeMethod = originElement.isNativeMethod() == concecutive_element_1.isNativeMethod();
++            final boolean isSameClassName = originElement.getClassName().equals(concecutive_element_1.getClassName());
++            final boolean isSameFileName = Objects.equals(originElement.getFileName(), concecutive_element_1.getFileName());
++            final boolean isSameMethodName = originElement.getMethodName().equals(concecutive_element_1.getMethodName());
++
++            if (isNativeMethod && isSameClassName && isSameFileName && isSameMethodName) {
++                if (concecutive_element_2 == null == this.stackTrace.length > 1)
+                     return false;
+-                } else if (debug2 != null && !this.stackTrace[1].equals(debug2)) {
++
++                if (concecutive_element_2 != null && !this.stackTrace[1].equals(concecutive_element_2))
+                     return false;
+-                } else {
+-                    this.stackTrace[0] = debug1;
+-                    return true;
+-                }
+-            } else {
+-                return false;
++
++                this.stackTrace[0] = concecutive_element_1;
++                return true;
+             }
+-        } else {
+-            return false;
+         }
++        return false;
+     }
+
+-    public void trimStacktrace(int debug1) {
+-        StackTraceElement[] astacktraceelement = new StackTraceElement[this.stackTrace.length - debug1];
+-        System.arraycopy(this.stackTrace, 0, astacktraceelement, 0, astacktraceelement.length);
+-        this.stackTrace = astacktraceelement;
++    public void trimStacktrace(final int decrease_by) {
++        this.stackTrace = new StackTraceElement[this.stackTrace.length - decrease_by];
++        System.arraycopy(this.stackTrace, 0, this.stackTrace, 0, this.stackTrace.length);
+     }
+
+-    public void getDetails(StringBuilder debug1) {
+-        debug1.append("-- ").append(this.title).append(" --\n");
+-        debug1.append("Details:");
++    public void getDetails(final StringBuilder builder) {
++        builder.append("-- ").append(this.title).append(" --\n");
++        builder.append("Details:");
+
+-        for(CrashReportCategory.Entry crashreportcategory$entry : this.entries) {
+-            debug1.append("\n\t");
+-            debug1.append(crashreportcategory$entry.getKey());
+-            debug1.append(": ");
+-            debug1.append(crashreportcategory$entry.getValue());
++        for (final CrashReportCategory.Entry entry : this.entries) {
++            builder.append("\n\t");
++            builder.append(entry.getKey());
++            builder.append(": ");
++            builder.append(entry.getValue());
+         }
+
+         if (this.stackTrace != null && this.stackTrace.length > 0) {
+-            debug1.append("\nStacktrace:");
++            builder.append("\nStacktrace:");
+
+-            for(StackTraceElement stacktraceelement : this.stackTrace) {
+-                debug1.append("\n\tat ");
+-                debug1.append(stacktraceelement);
++            for (final StackTraceElement traceElement : this.stackTrace) {
++                builder.append("\n\tat ");
++                builder.append(traceElement);
+             }
+         }
+     }
+@@ -154,28 +156,17 @@ public class CrashReportCategory {
+         return this.stackTrace;
+     }
+
+-    public static void populateBlockDetails(CrashReportCategory debug0, BlockPos debug1, @Nullable BlockState debug2) {
+-        if (debug2 != null) {
+-            debug0.setDetail("Block", debug2::toString);
+-        }
+-
+-        debug0.setDetail("Block location", () -> formatLocation(debug1));
+-    }
+-
+     static class Entry {
+         private final String key;
+         private final String value;
+
+-        public Entry(String debug1, @Nullable Object debug2) {
+-            this.key = debug1;
+-            if (debug2 == null) {
++        public Entry(final String key, final @Nullable Object value) {
++            this.key = key;
++            if (value == null)
+                 this.value = "~~NULL~~";
+-            } else if (debug2 instanceof Throwable) {
+-                Throwable throwable = (Throwable)debug2;
++            else if (value instanceof Throwable throwable)
+                 this.value = "~~ERROR~~ " + throwable.getClass().getSimpleName() + ": " + throwable.getMessage();
+-            } else {
+-                this.value = debug2.toString();
+-            }
++            else this.value = value.toString();
+         }
+
+         public String getKey() {
