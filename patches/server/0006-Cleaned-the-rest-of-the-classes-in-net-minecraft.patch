@@ -1,0 +1,968 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: From: LeeAnhh <summertwilighttimes@gmail.com>
+Date: Mon, 30 Jan 2023 19:10:39 +0700
+Subject: [PATCH] Cleaned the rest of the classes in net/minecraft
+
+
+diff --git a/src/main/java/net/minecraft/DefaultUncaughtExceptionHandler.java b/src/main/java/net/minecraft/DefaultUncaughtExceptionHandler.java
+index 7ec21f0903c52787e290cba1264e2773d9a30dd3..6b3c22a881905bfa723e53ff4f26e76ba9dd0e09 100644
+--- a/src/main/java/net/minecraft/DefaultUncaughtExceptionHandler.java
++++ b/src/main/java/net/minecraft/DefaultUncaughtExceptionHandler.java
+@@ -1,17 +1,18 @@
+ package net.minecraft;
+
+-import java.lang.Thread.UncaughtExceptionHandler;
+ import org.apache.logging.log4j.Logger;
+
++import java.lang.Thread.UncaughtExceptionHandler;
++
+ public class DefaultUncaughtExceptionHandler implements UncaughtExceptionHandler {
+     private final Logger logger;
+
+-    public DefaultUncaughtExceptionHandler(Logger debug1) {
+-        this.logger = debug1;
++    public DefaultUncaughtExceptionHandler(final Logger logger) {
++        this.logger = logger;
+     }
+
+     @Override
+-    public void uncaughtException(Thread debug1, Throwable debug2) {
+-        this.logger.error("Caught previously unhandled exception :", debug2);
++    public void uncaughtException(final Thread thread, final Throwable throwable) {
++        this.logger.error("Caught previously unhandled exception :", throwable);
+     }
+ }
+diff --git a/src/main/java/net/minecraft/DefaultUncaughtExceptionHandlerWithName.java b/src/main/java/net/minecraft/DefaultUncaughtExceptionHandlerWithName.java
+index c7db3620a2b2a961c0f02643670f70138b91cfb5..abcd4dc917516b1cd5c736934937259987c93b72 100644
+--- a/src/main/java/net/minecraft/DefaultUncaughtExceptionHandlerWithName.java
++++ b/src/main/java/net/minecraft/DefaultUncaughtExceptionHandlerWithName.java
+@@ -1,18 +1,19 @@
+ package net.minecraft;
+
+-import java.lang.Thread.UncaughtExceptionHandler;
+ import org.apache.logging.log4j.Logger;
+
++import java.lang.Thread.UncaughtExceptionHandler;
++
+ public class DefaultUncaughtExceptionHandlerWithName implements UncaughtExceptionHandler {
+     private final Logger logger;
+
+-    public DefaultUncaughtExceptionHandlerWithName(Logger debug1) {
+-        this.logger = debug1;
++    public DefaultUncaughtExceptionHandlerWithName(final Logger logger) {
++        this.logger = logger;
+     }
+
+     @Override
+-    public void uncaughtException(Thread debug1, Throwable debug2) {
++    public void uncaughtException(final Thread thread, final Throwable throwable) {
+         this.logger.error("Caught previously unhandled exception :");
+-        this.logger.error(debug1.getName(), debug2);
++        this.logger.error(thread.getName(), throwable);
+     }
+ }
+diff --git a/src/main/java/net/minecraft/DetectedVersion.java b/src/main/java/net/minecraft/DetectedVersion.java
+index 594143dbbd9f869e29b8a2720a0b34bf860e0cfe..241ed56129f7702f1896a767eea621d510148324 100644
+--- a/src/main/java/net/minecraft/DetectedVersion.java
++++ b/src/main/java/net/minecraft/DetectedVersion.java
+@@ -3,19 +3,20 @@ package net.minecraft;
+ import com.google.gson.JsonObject;
+ import com.google.gson.JsonParseException;
+ import com.mojang.bridge.game.GameVersion;
++import net.minecraft.util.GsonHelper;
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
++
+ import java.io.IOException;
+ import java.io.InputStream;
+ import java.io.InputStreamReader;
+ import java.time.ZonedDateTime;
+ import java.util.Date;
+ import java.util.UUID;
+-import net.minecraft.util.GsonHelper;
+-import org.apache.logging.log4j.LogManager;
+-import org.apache.logging.log4j.Logger;
+
+ public class DetectedVersion implements GameVersion {
+-    private static final Logger LOGGER = LogManager.getLogger();
+     public static final GameVersion BUILT_IN = new DetectedVersion();
++    private static final Logger LOGGER = LogManager.getLogger();
+     private final String id;
+     private final String name;
+     private final boolean stable;
+@@ -30,38 +31,37 @@ public class DetectedVersion implements GameVersion {
+         this.name = "1.16.5";
+         this.stable = true;
+         this.worldVersion = 2586;
+-        this.protocolVersion = SharedConstants.getProtocolVersion();
++        this.protocolVersion = 754;
+         this.packVersion = 6;
+         this.buildTime = new Date();
+         this.releaseTarget = "1.16.5";
+     }
+
+-    private DetectedVersion(JsonObject debug1) {
+-        this.id = GsonHelper.getAsString(debug1, "id");
+-        this.name = GsonHelper.getAsString(debug1, "name");
+-        this.releaseTarget = GsonHelper.getAsString(debug1, "release_target");
+-        this.stable = GsonHelper.getAsBoolean(debug1, "stable");
+-        this.worldVersion = GsonHelper.getAsInt(debug1, "world_version");
+-        this.protocolVersion = GsonHelper.getAsInt(debug1, "protocol_version");
+-        this.packVersion = GsonHelper.getAsInt(debug1, "pack_version");
+-        this.buildTime = Date.from(ZonedDateTime.parse(GsonHelper.getAsString(debug1, "build_time")).toInstant());
++    private DetectedVersion(final JsonObject jsonObject) {
++        this.id = GsonHelper.getAsString(jsonObject, "id");
++        this.name = GsonHelper.getAsString(jsonObject, "name");
++        this.releaseTarget = GsonHelper.getAsString(jsonObject, "release_target");
++        this.stable = GsonHelper.getAsBoolean(jsonObject, "stable");
++        this.worldVersion = GsonHelper.getAsInt(jsonObject, "world_version");
++        this.protocolVersion = GsonHelper.getAsInt(jsonObject, "protocol_version");
++        this.packVersion = GsonHelper.getAsInt(jsonObject, "pack_version");
++        this.buildTime = Date.from(ZonedDateTime.parse(GsonHelper.getAsString(jsonObject, "build_time")).toInstant());
+     }
+
+     public static GameVersion tryDetectVersion() {
+-        try (InputStream inputstream = DetectedVersion.class.getResourceAsStream("/version.json")) {
+-            if (inputstream == null) {
++        try (final InputStream inputStream = DetectedVersion.class.getResourceAsStream("/version.json")) {
++            if (inputStream == null) {
+                 LOGGER.warn("Missing version information!");
+                 return BUILT_IN;
+-            } else {
+-                DetectedVersion detectedversion;
+-                try (InputStreamReader inputstreamreader = new InputStreamReader(inputstream)) {
+-                    detectedversion = new DetectedVersion(GsonHelper.parse(inputstreamreader));
+-                }
+-
+-                return detectedversion;
+             }
+-        } catch (JsonParseException | IOException ioexception) {
+-            throw new IllegalStateException("Game version information is corrupt", ioexception);
++            DetectedVersion version;
++            try (final InputStreamReader streamReader = new InputStreamReader(inputStream)) {
++                version = new DetectedVersion(GsonHelper.parse(streamReader));
++            }
++
++            return version;
++        } catch (JsonParseException | IOException exception) {
++            throw new IllegalStateException("Game version information is corrupt", exception);
+         }
+     }
+
+diff --git a/src/main/java/net/minecraft/FileUtil.java b/src/main/java/net/minecraft/FileUtil.java
+index 4e1b9748af700852bda84312db8532eb04a62ddf..c32d95d479c3bd746236945b22e2c1f486ba1718 100644
+--- a/src/main/java/net/minecraft/FileUtil.java
++++ b/src/main/java/net/minecraft/FileUtil.java
+@@ -6,17 +6,16 @@ import java.nio.file.Paths;
+ import java.util.regex.Pattern;
+
+ public class FileUtil {
+-    private static final Pattern COPY_COUNTER_PATTERN = Pattern.compile("(<name>.*) \\((<count>\\d*)\\)", 66);
+     private static final Pattern RESERVED_WINDOWS_FILENAMES = Pattern.compile(".*\\.|(?:COM|CLOCK\\$|CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(?:\\..*)?", 2);
+
+-    public static boolean isPathNormalized(Path debug0) {
+-        Path path = debug0.normalize();
+-        return path.equals(debug0);
++    public static boolean isPathNormalized(final Path path) {
++        Path normalized = path.normalize();
++        return normalized.equals(path);
+     }
+
+-    public static boolean isPathPortable(Path debug0) {
+-        for(Path path : debug0) {
+-            if (RESERVED_WINDOWS_FILENAMES.matcher(path.toString()).matches()) {
++    public static boolean isPathPortable(final Path path) {
++        for (Path element : path) {
++            if (RESERVED_WINDOWS_FILENAMES.matcher(element.toString()).matches()) {
+                 return false;
+             }
+         }
+@@ -24,13 +23,11 @@ public class FileUtil {
+         return true;
+     }
+
+-    public static Path createPathToResource(Path debug0, String debug1, String debug2) {
+-        String s = debug1 + debug2;
+-        Path path = Paths.get(s);
+-        if (path.endsWith(debug2)) {
+-            throw new InvalidPathException(s, "empty resource name");
+-        } else {
+-            return debug0.resolve(path);
+-        }
++    public static Path createPathToResource(final Path path, final String resource_name, final String fileName) {
++        String root = resource_name + fileName;
++        Path resulting_path = Paths.get(root);
++
++        if (resulting_path.endsWith(fileName)) throw new InvalidPathException(root, "empty resource name");
++        return path.resolve(resulting_path);
+     }
+ }
+diff --git a/src/main/java/net/minecraft/ReportedException.java b/src/main/java/net/minecraft/ReportedException.java
+index aae184233ffc1dea0733dd73fa667025a18a70be..ab8bf1ea314b2af2223f49dea285477537cf06e2 100644
+--- a/src/main/java/net/minecraft/ReportedException.java
++++ b/src/main/java/net/minecraft/ReportedException.java
+@@ -3,8 +3,8 @@ package net.minecraft;
+ public class ReportedException extends RuntimeException {
+     private final CrashReport report;
+
+-    public ReportedException(CrashReport debug1) {
+-        this.report = debug1;
++    public ReportedException(final CrashReport crashReport) {
++        this.report = crashReport;
+     }
+
+     public CrashReport getReport() {
+diff --git a/src/main/java/net/minecraft/ResourceLocationException.java b/src/main/java/net/minecraft/ResourceLocationException.java
+index 27fdff6bdddc12948781f86ad2081826b271de68..1f8ca89e041309b6e29e6176d9c4cefa9269e000 100644
+--- a/src/main/java/net/minecraft/ResourceLocationException.java
++++ b/src/main/java/net/minecraft/ResourceLocationException.java
+@@ -1,11 +1,11 @@
+ package net.minecraft;
+
+ public class ResourceLocationException extends RuntimeException {
+-    public ResourceLocationException(String debug1) {
+-        super(debug1);
++    public ResourceLocationException(final String message) {
++        super(message);
+     }
+
+-    public ResourceLocationException(String debug1, Throwable debug2) {
+-        super(debug1, debug2);
++    public ResourceLocationException(final String message, final Throwable exception) {
++        super(message, exception);
+     }
+ }
+diff --git a/src/main/java/net/minecraft/SharedConstants.java b/src/main/java/net/minecraft/SharedConstants.java
+index 6bdb9f21ed03708fcd829cfa3b57e1d2b1fc7f9e..45164032f0338e9e05e04d7e8ab18f5a25889ec9 100644
+--- a/src/main/java/net/minecraft/SharedConstants.java
++++ b/src/main/java/net/minecraft/SharedConstants.java
+@@ -4,48 +4,37 @@ import com.mojang.bridge.game.GameVersion;
+ import com.mojang.brigadier.exceptions.CommandSyntaxException;
+ import io.netty.util.ResourceLeakDetector;
+ import io.netty.util.ResourceLeakDetector.Level;
+-import java.time.Duration;
+ import net.minecraft.commands.BrigadierExceptions;
+
+ public class SharedConstants {
+     public static final Level NETTY_LEAK_DETECTION = Level.DISABLED;
+-    public static final long MAXIMUM_TICK_TIME_NANOS = Duration.ofMillis(300L).toNanos();
++    private static final GameVersion CURRENT_VERSION = DetectedVersion.tryDetectVersion();
+     public static boolean CHECK_DATA_FIXER_SCHEMA = true;
+     public static boolean IS_RUNNING_IN_IDE;
+-    public static final char[] ILLEGAL_FILE_CHARACTERS = new char[]{'/', '\n', '\r', '\t', '\u0000', '\f', '`', '?', '*', '\\', '<', '>', '|', '"', ':'};
+-    private static GameVersion CURRENT_VERSION;
+
+-    public static boolean isAllowedChatCharacter(char debug0) {
+-        return debug0 != 167 && debug0 >= ' ' && debug0 != 127;
++    static {
++        ResourceLeakDetector.setLevel(NETTY_LEAK_DETECTION);
++        CommandSyntaxException.ENABLE_COMMAND_STACK_TRACES = false;
++        CommandSyntaxException.BUILT_IN_EXCEPTIONS = new BrigadierExceptions();
+     }
+
+-    public static String filterText(String debug0) {
+-        StringBuilder stringbuilder = new StringBuilder();
++    public static boolean isAllowedChatCharacter(final char char_) {
++        return char_ != 167 && char_ >= ' ' && char_ != 127;
++    }
++
++    public static String filterText(final String str) {
++        StringBuilder builder = new StringBuilder();
+
+-        for(char c0 : debug0.toCharArray()) {
+-            if (isAllowedChatCharacter(c0)) {
+-                stringbuilder.append(c0);
++        for (final char char_ : str.toCharArray()) {
++            if (isAllowedChatCharacter(char_)) {
++                builder.append(char_);
+             }
+         }
+
+-        return stringbuilder.toString();
++        return builder.toString();
+     }
+
+     public static GameVersion getCurrentVersion() {
+-        if (CURRENT_VERSION == null) {
+-            CURRENT_VERSION = DetectedVersion.tryDetectVersion();
+-        }
+-
+         return CURRENT_VERSION;
+     }
+-
+-    public static int getProtocolVersion() {
+-        return 754;
+-    }
+-
+-    static {
+-        ResourceLeakDetector.setLevel(NETTY_LEAK_DETECTION);
+-        CommandSyntaxException.ENABLE_COMMAND_STACK_TRACES = false;
+-        CommandSyntaxException.BUILT_IN_EXCEPTIONS = new BrigadierExceptions();
+-    }
+ }
+diff --git a/src/main/java/net/minecraft/Util.java b/src/main/java/net/minecraft/Util.java
+index 535a1729268a69a4b88c73c2753900cf58a1e91f..33fc5ecab0eac0ca614873c347cb9cdc52281d9c 100644
+--- a/src/main/java/net/minecraft/Util.java
++++ b/src/main/java/net/minecraft/Util.java
+@@ -3,11 +3,20 @@ package net.minecraft;
+ import com.google.common.collect.Iterators;
+ import com.google.common.collect.Lists;
+ import com.google.common.util.concurrent.MoreExecutors;
+-import com.mojang.datafixers.DataFixUtils;
+ import com.mojang.datafixers.DSL.TypeReference;
++import com.mojang.datafixers.DataFixUtils;
+ import com.mojang.datafixers.types.Type;
+ import com.mojang.serialization.DataResult;
+ import it.unimi.dsi.fastutil.Hash.Strategy;
++import net.minecraft.resources.ResourceLocation;
++import net.minecraft.server.Bootstrap;
++import net.minecraft.util.Mth;
++import net.minecraft.util.datafix.DataFixers;
++import net.minecraft.world.level.block.state.properties.Property;
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
++
++import javax.annotation.Nullable;
+ import java.io.File;
+ import java.io.IOException;
+ import java.lang.management.ManagementFactory;
+@@ -15,23 +24,9 @@ import java.lang.management.RuntimeMXBean;
+ import java.nio.file.Files;
+ import java.nio.file.Path;
+ import java.time.Instant;
+-import java.util.Arrays;
+-import java.util.Iterator;
+-import java.util.List;
+-import java.util.Locale;
+-import java.util.Map;
+-import java.util.Optional;
+-import java.util.Random;
+-import java.util.UUID;
++import java.util.*;
+ import java.util.Map.Entry;
+-import java.util.concurrent.CompletableFuture;
+-import java.util.concurrent.CompletionException;
+-import java.util.concurrent.Executor;
+-import java.util.concurrent.ExecutorService;
+-import java.util.concurrent.Executors;
+-import java.util.concurrent.ForkJoinPool;
+-import java.util.concurrent.ForkJoinWorkerThread;
+-import java.util.concurrent.TimeUnit;
++import java.util.concurrent.*;
+ import java.util.concurrent.atomic.AtomicInteger;
+ import java.util.function.BooleanSupplier;
+ import java.util.function.Consumer;
+@@ -41,34 +36,26 @@ import java.util.stream.Collector;
+ import java.util.stream.Collectors;
+ import java.util.stream.IntStream;
+ import java.util.stream.Stream;
+-import javax.annotation.Nullable;
+-import net.minecraft.resources.ResourceLocation;
+-import net.minecraft.server.Bootstrap;
+-import net.minecraft.util.Mth;
+-import net.minecraft.util.datafix.DataFixers;
+-import net.minecraft.world.level.block.state.properties.Property;
+-import org.apache.logging.log4j.LogManager;
+-import org.apache.logging.log4j.Logger;
+
+ public class Util {
++    public static final UUID NIL_UUID = new UUID(0L, 0L);
+     private static final AtomicInteger WORKER_COUNT = new AtomicInteger(1);
++    private static final Logger LOGGER = LogManager.getLogger();
+     private static final ExecutorService BOOTSTRAP_EXECUTOR = makeExecutor("Bootstrap");
+     private static final ExecutorService BACKGROUND_EXECUTOR = makeExecutor("Main");
+     private static final ExecutorService IO_POOL = makeIoExecutor();
+     public static LongSupplier timeSource = System::nanoTime;
+-    public static final UUID NIL_UUID = new UUID(0L, 0L);
+-    private static final Logger LOGGER = LogManager.getLogger();
+
+     public static <K, V> Collector<Entry<? extends K, ? extends V>, ?, Map<K, V>> toMap() {
+         return Collectors.toMap(Entry::getKey, Entry::getValue);
+     }
+
+-    public static <T extends Comparable<T>> String getPropertyName(Property<T> debug0, Object debug1) {
+-        return debug0.getName((T)debug1);
++    public static <T extends Comparable<T>> String getPropertyName(final Property<T> property, final Object obj) {
++        return property.getName((T) obj);
+     }
+
+-    public static String makeDescriptionId(String debug0, @Nullable ResourceLocation debug1) {
+-        return debug1 == null ? debug0 + ".unregistered_sadface" : debug0 + '.' + debug1.getNamespace() + '.' + debug1.getPath().replace('/', '.');
++    public static String makeDescriptionId(final String name, final @Nullable ResourceLocation nbt) {
++        return nbt == null ? name + ".unregistered_sadface" : name + '.' + nbt.getNamespace() + '.' + nbt.getPath().replace('/', '.');
+     }
+
+     public static long getMillis() {
+@@ -83,31 +70,29 @@ public class Util {
+         return Instant.now().toEpochMilli();
+     }
+
+-    private static ExecutorService makeExecutor(String debug0) {
+-        int i = Mth.clamp(Runtime.getRuntime().availableProcessors() - 1, 1, 7);
+-        ExecutorService executorservice;
+-        if (i <= 0) {
+-            executorservice = MoreExecutors.newDirectExecutorService();
+-        } else {
+-            executorservice = new ForkJoinPool(i, debug1x -> {
+-                ForkJoinWorkerThread debug2x = new ForkJoinWorkerThread(debug1x) {
++    private static ExecutorService makeExecutor(final String name) {
++        final int availableProcessors = Mth.clamp(Runtime.getRuntime().availableProcessors() - 1, 1, 7);
++        ExecutorService execService;
++
++        if (availableProcessors <= 0) execService = MoreExecutors.newDirectExecutorService();
++        else {
++            execService = new ForkJoinPool(availableProcessors, factory -> {
++                final ForkJoinWorkerThread factoryWorker = new ForkJoinWorkerThread(factory) {
+                     @Override
+-                    protected void onTermination(Throwable debug1) {
+-                        if (debug1 != null) {
+-                            Util.LOGGER.warn("{} died", this.getName(), debug1);
+-                        } else {
+-                            Util.LOGGER.debug("{} shutdown", this.getName());
+-                        }
+-
+-                        super.onTermination(debug1);
++                    protected void onTermination(Throwable throwable) {
++                        if (throwable != null)
++                            Util.LOGGER.warn("{} died", this.getName(), throwable);
++                        else Util.LOGGER.debug("{} shutdown", this.getName());
++
++                        super.onTermination(throwable);
+                     }
+                 };
+-                debug2x.setName("Worker-" + debug0 + "-" + WORKER_COUNT.getAndIncrement());
+-                return debug2x;
++                factoryWorker.setName("Worker-" + name + "-" + WORKER_COUNT.getAndIncrement());
++                return factoryWorker;
+             }, Util::onThreadException, true);
+         }
+
+-        return executorservice;
++        return execService;
+     }
+
+     public static Executor bootstrapExecutor() {
+@@ -127,61 +112,60 @@ public class Util {
+         shutdownExecutor(IO_POOL);
+     }
+
+-    private static void shutdownExecutor(ExecutorService debug0) {
+-        debug0.shutdown();
++    private static void shutdownExecutor(final ExecutorService execService) {
++        execService.shutdown();
+
+-        boolean flag;
++        boolean flag = false;
+         try {
+-            flag = debug0.awaitTermination(3L, TimeUnit.SECONDS);
+-        } catch (InterruptedException interruptedexception) {
+-            flag = false;
++            flag = execService.awaitTermination(3L, TimeUnit.SECONDS);
++        } catch (InterruptedException ignored) {
+         }
+
+         if (!flag) {
+-            debug0.shutdownNow();
++            execService.shutdownNow();
+         }
+     }
+
+     private static ExecutorService makeIoExecutor() {
+-        return Executors.newCachedThreadPool(debug0 -> {
+-            Thread thread = new Thread(debug0);
++        return Executors.newCachedThreadPool(factory -> {
++            final Thread thread = new Thread(factory);
+             thread.setName("IO-Worker-" + WORKER_COUNT.getAndIncrement());
+             thread.setUncaughtExceptionHandler(Util::onThreadException);
+             return thread;
+         });
+     }
+
+-    private static void onThreadException(Thread debug0, Throwable debug1) {
+-        pauseInIde(debug1);
+-        if (debug1 instanceof CompletionException) {
+-            debug1 = debug1.getCause();
++    private static void onThreadException(final Thread thread, Throwable throwable) {
++        pauseInIde(throwable);
++        if (throwable instanceof CompletionException) {
++            throwable = throwable.getCause();
+         }
+
+-        if (debug1 instanceof ReportedException) {
+-            Bootstrap.realStdoutPrintln(((ReportedException)debug1).getReport().getFriendlyReport());
++        if (throwable instanceof final ReportedException exception) {
++            Bootstrap.realStdoutPrintln(exception.getReport().getFriendlyReport());
+             System.exit(-1);
+         }
+
+-        LOGGER.error(String.format("Caught exception in thread %s", debug0), debug1);
++        LOGGER.error(String.format("Caught exception in thread %s", thread), throwable);
+     }
+
+     @Nullable
+-    public static Type<?> fetchChoiceType(TypeReference debug0, String debug1) {
+-        return !SharedConstants.CHECK_DATA_FIXER_SCHEMA ? null : doFetchChoiceType(debug0, debug1);
++    public static Type<?> fetchChoiceType(final TypeReference typeReference, final String data) {
++        return !SharedConstants.CHECK_DATA_FIXER_SCHEMA ? null : doFetchChoiceType(typeReference, data);
+     }
+
+     @Nullable
+-    private static Type<?> doFetchChoiceType(TypeReference debug0, String debug1) {
++    private static Type<?> doFetchChoiceType(final TypeReference typeReference, final String choiceName) {
+         Type<?> type = null;
+
+         try {
+             type = DataFixers.getDataFixer()
+-                .getSchema(DataFixUtils.makeKey(SharedConstants.getCurrentVersion().getWorldVersion()))
+-                .getChoiceType(debug0, debug1);
+-        } catch (IllegalArgumentException illegalargumentexception) {
+-            LOGGER.error("No data fixer registered for {}", debug1);
++                    .getSchema(DataFixUtils.makeKey(SharedConstants.getCurrentVersion().getWorldVersion()))
++                    .getChoiceType(typeReference, choiceName);
++        } catch (final IllegalArgumentException exception) {
++            LOGGER.error("No data fixer registered for {}", choiceName);
+             if (SharedConstants.IS_RUNNING_IN_IDE) {
+-                throw illegalargumentexception;
++                throw exception;
+             }
+         }
+
+@@ -189,223 +173,200 @@ public class Util {
+     }
+
+     public static Util.OS getPlatform() {
+-        String s = System.getProperty("os.name").toLowerCase(Locale.ROOT);
+-        if (s.contains("win")) {
+-            return Util.OS.WINDOWS;
+-        } else if (s.contains("mac")) {
+-            return Util.OS.OSX;
+-        } else if (s.contains("solaris")) {
+-            return Util.OS.SOLARIS;
+-        } else if (s.contains("sunos")) {
+-            return Util.OS.SOLARIS;
+-        } else if (s.contains("linux")) {
+-            return Util.OS.LINUX;
+-        } else {
+-            return s.contains("unix") ? Util.OS.LINUX : Util.OS.UNKNOWN;
+-        }
++        String os = System.getProperty("os.name").toLowerCase(Locale.ROOT);
++        if (os.contains("win")) return Util.OS.WINDOWS;
++        else if (os.contains("mac")) return Util.OS.OSX;
++        else if (os.contains("solaris") || os.contains("sunos")) return Util.OS.SOLARIS;
++        else if (os.contains("linux") || os.contains("unix")) return Util.OS.LINUX;
++        return Util.OS.UNKNOWN;
+     }
+
+     public static Stream<String> getVmArguments() {
+-        RuntimeMXBean runtimemxbean = ManagementFactory.getRuntimeMXBean();
+-        return runtimemxbean.getInputArguments().stream().filter(debug0x -> debug0x.startsWith("-X"));
++        final RuntimeMXBean runtimeBean = ManagementFactory.getRuntimeMXBean();
++        return runtimeBean.getInputArguments().stream().filter(arguments -> arguments.startsWith("-X"));
+     }
+
+-    public static <T> T lastOf(List<T> debug0) {
+-        return debug0.get(debug0.size() - 1);
++    public static <T> T lastOf(final List<T> list) {
++        return list.get(list.size() - 1);
+     }
+
+-    public static <T> T findNextInIterable(Iterable<T> debug0, @Nullable T debug1) {
+-        Iterator<T> iterator = debug0.iterator();
+-        T t = iterator.next();
+-        if (debug1 != null) {
+-            T t1 = t;
+-
+-            while(t1 != debug1) {
+-                if (iterator.hasNext()) {
+-                    t1 = iterator.next();
+-                }
+-            }
+-
+-            if (iterator.hasNext()) {
+-                return iterator.next();
+-            }
++    public static <T> T findNextInIterable(final Iterable<T> iterable, final @Nullable T obj) {
++        Iterator<T> iterator = iterable.iterator();
++        T nextObj = iterator.next();
++        if (obj != null) {
++            T copy = nextObj;
++            while (copy != obj) if (iterator.hasNext()) copy = iterator.next();
++            if (iterator.hasNext()) return iterator.next();
+         }
+
+-        return t;
++        return nextObj;
+     }
+
+-    public static <T> T findPreviousInIterable(Iterable<T> debug0, @Nullable T debug1) {
+-        Iterator<T> iterator = debug0.iterator();
++    public static <T> T findPreviousInIterable(final Iterable<T> iterable, final @Nullable T obj) {
++        Iterator<T> iterator = iterable.iterator();
+
+-        T t;
+-        T t1;
+-        for(t = null; iterator.hasNext(); t = t1) {
+-            t1 = iterator.next();
+-            if (t1 == debug1) {
+-                if (t == null) {
+-                    t = (T)(iterator.hasNext() ? Iterators.getLast(iterator) : debug1);
+-                }
++        T prevObj;
++        T nextObj;
++        for (prevObj = null; iterator.hasNext(); prevObj = nextObj) {
++            nextObj = iterator.next();
++            if (nextObj == obj) {
++                if (prevObj == null) prevObj = iterator.hasNext() ? Iterators.getLast(iterator) : obj;
+                 break;
+             }
+         }
+
+-        return t;
++        return prevObj;
+     }
+
+-    public static <T> T make(Supplier<T> debug0) {
+-        return debug0.get();
++    public static <T> T make(final Supplier<T> supplier) {
++        return supplier.get();
+     }
+
+-    public static <T> T make(T debug0, Consumer<T> debug1) {
+-        debug1.accept(debug0);
+-        return debug0;
++    public static <T> T make(final T obj, final Consumer<T> consumer) {
++        consumer.accept(obj);
++        return obj;
+     }
+
+     public static <K> Strategy<K> identityStrategy() {
+-        return Util.IdentityStrategy.INSTANCE;
+-    }
+-
+-    public static <V> CompletableFuture<List<V>> sequence(List<? extends CompletableFuture<? extends V>> debug0) {
+-        List<V> list = Lists.newArrayListWithCapacity(debug0.size());
+-        CompletableFuture<?>[] completablefuture = new CompletableFuture[debug0.size()];
+-        CompletableFuture<Void> completablefuture1 = new CompletableFuture<>();
+-        debug0.forEach(debug3x -> {
+-            int i = list.size();
+-            list.add((V)null);
+-            completablefuture[i] = debug3x.whenComplete((debug3xx, debug4x) -> {
+-                if (debug4x != null) {
+-                    completablefuture1.completeExceptionally(debug4x);
++        return (Strategy<K>) IdentityStrategy.INSTANCE;
++    }
++
++    public static <V> CompletableFuture<List<V>> sequence(final List<? extends CompletableFuture<? extends V>> list) {
++        List<V> copy = Lists.newArrayListWithCapacity(list.size());
++        CompletableFuture<?>[] completableFutures = new CompletableFuture[list.size()];
++        CompletableFuture<Void> voidCompletableFuture = new CompletableFuture<>();
++
++        list.forEach(completableFuture -> {
++            int i = copy.size();
++            copy.add(null);
++            completableFutures[i] = completableFuture.whenComplete((obj, throwable) -> {
++                if (throwable != null) {
++                    voidCompletableFuture.completeExceptionally(throwable);
+                 } else {
+-                    list.set(i, debug3xx);
++                    copy.set(i, obj);
+                 }
+             });
+         });
+-        return CompletableFuture.allOf(completablefuture).applyToEither(completablefuture1, debug1x -> list);
++        return CompletableFuture.allOf(completableFutures).applyToEither(voidCompletableFuture, function -> copy);
+     }
+
+-    public static <T> Stream<T> toStream(Optional<? extends T> debug0) {
+-        return (Stream<T>)DataFixUtils.orElseGet(debug0.map(Stream::of), Stream::empty);
++    public static <T> Stream<T> toStream(final Optional<? extends T> optional) {
++        return DataFixUtils.orElseGet(optional.map(Stream::of), Stream::empty);
+     }
+
+-    public static <T> Optional<T> ifElse(Optional<T> debug0, Consumer<T> debug1, Runnable debug2) {
+-        if (debug0.isPresent()) {
+-            debug1.accept(debug0.get());
+-        } else {
+-            debug2.run();
+-        }
++    public static <T> Optional<T> ifElse(final Optional<T> optional, final Consumer<T> consumer, final Runnable runnable) {
++        if (optional.isPresent()) consumer.accept(optional.get());
++        else runnable.run();
+
+-        return debug0;
++        return optional;
+     }
+
+-    public static Runnable name(Runnable debug0, Supplier<String> debug1) {
+-        return debug0;
++    public static Runnable name(final Runnable runnable) {
++        return runnable;
+     }
+
+-    public static <T extends Throwable> T pauseInIde(T debug0) {
++    public static <T extends Throwable> T pauseInIde(final T obj) {
+         if (SharedConstants.IS_RUNNING_IN_IDE) {
+-            LOGGER.error("Trying to throw a fatal exception, pausing in IDE", debug0);
++            LOGGER.error("Trying to throw a fatal exception, pausing in IDE", obj);
+
+-            while(true) {
++            while (true) {
+                 try {
+                     Thread.sleep(1000L);
+                     LOGGER.error("paused");
+-                } catch (InterruptedException interruptedexception) {
+-                    return debug0;
++                } catch (final InterruptedException exception) {
++                    return obj;
+                 }
+             }
+         } else {
+-            return debug0;
++            return obj;
+         }
+     }
+
+-    public static String describeError(Throwable debug0) {
+-        if (debug0.getCause() != null) {
+-            return describeError(debug0.getCause());
+-        } else {
+-            return debug0.getMessage() != null ? debug0.getMessage() : debug0.toString();
+-        }
++    public static String describeError(final Throwable throwable) {
++        if (throwable.getCause() != null) return describeError(throwable.getCause());
++        return throwable.getMessage() != null ? throwable.getMessage() : throwable.toString();
+     }
+
+-    public static <T> T getRandom(T[] debug0, Random debug1) {
+-        return debug0[debug1.nextInt(debug0.length)];
++    public static <T> T getRandom(final T[] objs, final Random random) {
++        return objs[random.nextInt(objs.length)];
+     }
+
+-    public static int getRandom(int[] debug0, Random debug1) {
+-        return debug0[debug1.nextInt(debug0.length)];
++    public static int getRandom(int[] ints, final Random random) {
++        return ints[random.nextInt(ints.length)];
+     }
+
+-    private static BooleanSupplier createRenamer(final Path debug0, final Path debug1) {
++    private static BooleanSupplier createRenamer(final Path origin, final Path renamed) {
+         return new BooleanSupplier() {
+             @Override
+             public boolean getAsBoolean() {
+                 try {
+-                    Files.move(debug0, debug1);
++                    Files.move(origin, renamed);
+                     return true;
+-                } catch (IOException ioexception) {
+-                    Util.LOGGER.error("Failed to rename", ioexception);
++                } catch (final IOException exception) {
++                    Util.LOGGER.error("Failed to rename", exception);
+                     return false;
+                 }
+             }
+
+             @Override
+             public String toString() {
+-                return "rename " + debug0 + " to " + debug1;
++                return "rename " + origin + " to " + renamed;
+             }
+         };
+     }
+
+-    private static BooleanSupplier createDeleter(final Path debug0) {
++    private static BooleanSupplier createDeleter(final Path path) {
+         return new BooleanSupplier() {
+             @Override
+             public boolean getAsBoolean() {
+                 try {
+-                    Files.deleteIfExists(debug0);
++                    Files.deleteIfExists(path);
+                     return true;
+-                } catch (IOException ioexception) {
+-                    Util.LOGGER.warn("Failed to delete", ioexception);
++                } catch (final IOException exception) {
++                    Util.LOGGER.warn("Failed to delete", exception);
+                     return false;
+                 }
+             }
+
+             @Override
+             public String toString() {
+-                return "delete old " + debug0;
++                return "delete old " + path;
+             }
+         };
+     }
+
+-    private static BooleanSupplier createFileDeletedCheck(final Path debug0) {
++    private static BooleanSupplier createFileDeletedCheck(final Path path) {
+         return new BooleanSupplier() {
+             @Override
+             public boolean getAsBoolean() {
+-                return !Files.exists(debug0);
++                return !Files.exists(path);
+             }
+
+             @Override
+             public String toString() {
+-                return "verify that " + debug0 + " is deleted";
++                return "verify that " + path + " is deleted";
+             }
+         };
+     }
+
+-    private static BooleanSupplier createFileCreatedCheck(final Path debug0) {
++    private static BooleanSupplier createFileCreatedCheck(final Path path) {
+         return new BooleanSupplier() {
+             @Override
+             public boolean getAsBoolean() {
+-                return Files.isRegularFile(debug0);
++                return Files.isRegularFile(path);
+             }
+
+             @Override
+             public String toString() {
+-                return "verify that " + debug0 + " is present";
++                return "verify that " + path + " is present";
+             }
+         };
+     }
+
+-    private static boolean executeInSequence(BooleanSupplier... debug0) {
+-        for(BooleanSupplier booleansupplier : debug0) {
+-            if (!booleansupplier.getAsBoolean()) {
+-                LOGGER.warn("Failed to execute {}", booleansupplier);
++    private static boolean executeInSequence(final BooleanSupplier... suppliers) {
++        for (final BooleanSupplier booleanSupplier : suppliers) {
++            if (!booleanSupplier.getAsBoolean()) {
++                LOGGER.warn("Failed to execute {}", booleanSupplier);
+                 return false;
+             }
+         }
+@@ -413,57 +374,53 @@ public class Util {
+         return true;
+     }
+
+-    private static boolean runWithRetries(int debug0, String debug1, BooleanSupplier... debug2) {
+-        for(int i = 0; i < debug0; ++i) {
+-            if (executeInSequence(debug2)) {
+-                return true;
+-            }
++    private static boolean runWith10Retries(final String task, final BooleanSupplier... booleanSuppliers) {
++        for (int i = 0; i < 10; ++i) {
++            if (executeInSequence(booleanSuppliers)) return true;
+
+-            LOGGER.error("Failed to {}, retrying {}/{}", debug1, i, debug0);
++            LOGGER.error("Failed to {}, retrying {}/{}", task, i, 10);
+         }
+
+-        LOGGER.error("Failed to {}, aborting, progress might be lost", debug1);
++        LOGGER.error("Failed to {}, aborting, progress might be lost", task);
+         return false;
+     }
+
+-    public static void safeReplaceFile(File debug0, File debug1, File debug2) {
+-        safeReplaceFile(debug0.toPath(), debug1.toPath(), debug2.toPath());
++    public static void safeReplaceFile(final File origin, final File renamed, final File backup) {
++        safeReplaceFile(origin.toPath(), renamed.toPath(), backup.toPath());
+     }
+
+-    public static void safeReplaceFile(Path debug0, Path debug1, Path debug2) {
+-        int i = 10;
+-        if (!Files.exists(debug0)
+-            || runWithRetries(10, "create backup " + debug2, createDeleter(debug2), createRenamer(debug0, debug2), createFileCreatedCheck(debug2))) {
+-            if (runWithRetries(10, "remove old " + debug0, createDeleter(debug0), createFileDeletedCheck(debug0))) {
+-                if (!runWithRetries(10, "replace " + debug0 + " with " + debug1, createRenamer(debug1, debug0), createFileCreatedCheck(debug0))) {
+-                    runWithRetries(10, "restore " + debug0 + " from " + debug2, createRenamer(debug2, debug0), createFileCreatedCheck(debug0));
+-                }
+-            }
+-        }
++    public static void safeReplaceFile(final Path origin, final Path renamed, final Path backup) {
++        final boolean isBackupCreated = !Files.exists(origin) || runWith10Retries("create backup " + backup, createDeleter(backup), createRenamer(origin, backup), createFileCreatedCheck(backup));
++        final boolean isOriginDeleted = runWith10Retries("remove old " + origin, createDeleter(origin), createFileDeletedCheck(origin));
++        final boolean isOriginReplaced = runWith10Retries("replace " + origin + " with " + renamed, createRenamer(renamed, origin), createFileCreatedCheck(origin));
++
++        if (isBackupCreated)
++            if (isOriginDeleted)
++                if (!isOriginReplaced)
++                    runWith10Retries("restore " + origin + " from " + backup, createRenamer(backup, origin), createFileCreatedCheck(origin));
+     }
+
+-    public static Consumer<String> prefix(String debug0, Consumer<String> debug1) {
+-        return debug2 -> debug1.accept(debug0 + debug2);
++    public static Consumer<String> prefix(final String prefix, final Consumer<String> origin) {
++        return consumer -> origin.accept(prefix + consumer);
+     }
+
+-    public static DataResult<int[]> fixedSize(IntStream debug0, int debug1) {
+-        int[] aint = debug0.limit((long)(debug1 + 1)).toArray();
+-        if (aint.length != debug1) {
+-            String s = "Input is not a list of " + debug1 + " ints";
+-            return aint.length >= debug1 ? DataResult.error(s, Arrays.copyOf(aint, debug1)) : DataResult.error(s);
+-        } else {
+-            return DataResult.success(aint);
++    public static DataResult<int[]> fixedSize(final IntStream intStream, final int n) {
++        final int[] ints = intStream.limit(n + 1).toArray();
++        if (ints.length != n) {
++            final String errorMess = "Input is not a list of " + n + " ints";
++            return ints.length >= n ? DataResult.error(errorMess, Arrays.copyOf(ints, n)) : DataResult.error(errorMess);
+         }
++        return DataResult.success(ints);
+     }
+
+     public static void startTimerHackThread() {
+-        Thread thread = new Thread("Timer hack thread") {
++        final Thread thread = new Thread("Timer hack thread") {
+             @Override
+             public void run() {
+-                while(true) {
++                while (true) {
+                     try {
+                         Thread.sleep(2147483647L);
+-                    } catch (InterruptedException interruptedexception) {
++                    } catch (final InterruptedException exception) {
+                         Util.LOGGER.warn("Timer hack thread interrupted, that really should not happen");
+                         return;
+                     }
+@@ -475,31 +432,23 @@ public class Util {
+         thread.start();
+     }
+
+-    static enum IdentityStrategy implements Strategy<Object> {
++    enum IdentityStrategy implements Strategy<Object> {
+         INSTANCE;
+
+-        private IdentityStrategy() {
+-        }
+-
+-        public int hashCode(Object debug1) {
+-            return System.identityHashCode(debug1);
++        public int hashCode(final Object obj) {
++            return System.identityHashCode(obj);
+         }
+
+-        public boolean equals(Object debug1, Object debug2) {
+-            return debug1 == debug2;
++        public boolean equals(final Object obj1, Object obj2) {
++            return obj1 == obj2;
+         }
+     }
+
+-    public static enum OS {
++    public enum OS {
+         LINUX,
+         SOLARIS,
+-        WINDOWS {
+-        },
+-        OSX {
+-        },
+-        UNKNOWN;
+-
+-        private OS() {
+-        }
++        WINDOWS,
++        OSX,
++        UNKNOWN
+     }
+ }
