@@ -1,0 +1,179 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: LeeAnhh <summertwilighttimes@gmail.com>
+Date: Mon, 30 Jan 2023 18:07:20 +0700
+Subject: [PATCH] ChatFormatting is particularly short to refactor, yay
+
+
+diff --git a/src/main/java/net/minecraft/ChatFormatting.java b/src/main/java/net/minecraft/ChatFormatting.java
+index ce4e380328e6dea8e78e1a4799f90161bc6cac94..b51c3a7334279c98899a92a09ea207021dc7f93b 100644
+--- a/src/main/java/net/minecraft/ChatFormatting.java
++++ b/src/main/java/net/minecraft/ChatFormatting.java
+@@ -1,14 +1,11 @@
+ package net.minecraft;
+
+ import com.google.common.collect.Lists;
+-import java.util.Arrays;
+-import java.util.Collection;
+-import java.util.List;
+-import java.util.Locale;
+-import java.util.Map;
++
++import javax.annotation.Nullable;
++import java.util.*;
+ import java.util.regex.Pattern;
+ import java.util.stream.Collectors;
+-import javax.annotation.Nullable;
+
+ public enum ChatFormatting {
+     BLACK("BLACK", '0', 0, 0),
+@@ -32,38 +29,79 @@ public enum ChatFormatting {
+     STRIKETHROUGH("STRIKETHROUGH", 'm', true),
+     UNDERLINE("UNDERLINE", 'n', true),
+     ITALIC("ITALIC", 'o', true),
+-    RESET("RESET", 'r', -1, null);
++    RESET("RESET", 'r', false);
+
+     private static final Map<String, ChatFormatting> FORMATTING_BY_NAME = Arrays.stream(values())
+-        .collect(Collectors.toMap(debug0 -> cleanName(debug0.name), debug0 -> debug0));
+-    private static final Pattern STRIP_FORMATTING_PATTERN = Pattern.compile("(?i)\u00a7[0-9A-FK-OR]");
++            .collect(Collectors.toMap(eachColor -> cleanName(eachColor.name), color -> color));
++    private static final Pattern STRIP_FORMATTING_PATTERN = Pattern.compile("(?i)§[0-9A-FK-OR]");
+     private final String name;
+-    private final char code;
+     private final boolean isFormat;
+     private final String toString;
+     private final int id;
+     @Nullable
+-    private final Integer color;
++    private final Integer decimalColorCode;
+
+-    private static String cleanName(String debug0) {
+-        return debug0.toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
++    ChatFormatting(final String color,
++                   final char colorCode,
++                   final int colorId,
++                   final @Nullable Integer decimalColorCode) {
++        this(color, colorCode, false, colorId, decimalColorCode);
+     }
+
+-    private ChatFormatting(String debug3, char debug4, int debug5, @Nullable Integer debug6) {
+-        this(debug3, debug4, false, debug5, debug6);
++    ChatFormatting(final String color,
++                   final char colorCode,
++                   final boolean isFormat) {
++        this(color, colorCode, isFormat, -1, null);
+     }
+
+-    private ChatFormatting(String debug3, char debug4, boolean debug5) {
+-        this(debug3, debug4, debug5, -1, null);
++    ChatFormatting(final String color,
++                   final char colorCode,
++                   final boolean isFormat,
++                   final int colorId,
++                   final @Nullable Integer decimalColorCode) {
++        this.name = color;
++        this.isFormat = isFormat;
++        this.id = colorId;
++        this.decimalColorCode = decimalColorCode;
++        this.toString = "§" + colorCode;
++    }
++
++    private static String cleanName(final String name) {
++        return name.toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
++    }
++
++    @Nullable
++    public static String stripFormatting(final @Nullable String str) {
++        return str == null ? null : STRIP_FORMATTING_PATTERN.matcher(str).replaceAll("");
++    }
++
++    @Nullable
++    public static ChatFormatting getByName(final @Nullable String name) {
++        return name == null ? null : FORMATTING_BY_NAME.get(cleanName(name));
+     }
+
+-    private ChatFormatting(String debug3, char debug4, boolean debug5, int debug6, @Nullable Integer debug7) {
+-        this.name = debug3;
+-        this.code = debug4;
+-        this.isFormat = debug5;
+-        this.id = debug6;
+-        this.color = debug7;
+-        this.toString = "\u00a7" + debug4;
++    @Nullable
++    public static ChatFormatting getById(final int id) {
++        if (id < 0) return RESET;
++        for (ChatFormatting formatting : values()) {
++            if (formatting.getId() == id) {
++                return formatting;
++            }
++        }
++
++        return null;
++    }
++
++    public static Collection<String> getNames(final boolean isFormat, final boolean isColor) {
++        List<String> list = Lists.newArrayList();
++
++        for (ChatFormatting formatting : values()) {
++            if ((!formatting.isColor() || isFormat) && (!formatting.isFormat() || isColor)) {
++                list.add(formatting.getName());
++            }
++        }
++
++        return list;
+     }
+
+     public int getId() {
+@@ -79,8 +117,8 @@ public enum ChatFormatting {
+     }
+
+     @Nullable
+-    public Integer getColor() {
+-        return this.color;
++    public Integer getDecimalColorCode() {
++        return this.decimalColorCode;
+     }
+
+     public String getName() {
+@@ -91,41 +129,4 @@ public enum ChatFormatting {
+     public String toString() {
+         return this.toString;
+     }
+-
+-    @Nullable
+-    public static String stripFormatting(@Nullable String debug0) {
+-        return debug0 == null ? null : STRIP_FORMATTING_PATTERN.matcher(debug0).replaceAll("");
+-    }
+-
+-    @Nullable
+-    public static ChatFormatting getByName(@Nullable String debug0) {
+-        return debug0 == null ? null : FORMATTING_BY_NAME.get(cleanName(debug0));
+-    }
+-
+-    @Nullable
+-    public static ChatFormatting getById(int debug0) {
+-        if (debug0 < 0) {
+-            return RESET;
+-        } else {
+-            for(ChatFormatting chatformatting : values()) {
+-                if (chatformatting.getId() == debug0) {
+-                    return chatformatting;
+-                }
+-            }
+-
+-            return null;
+-        }
+-    }
+-
+-    public static Collection<String> getNames(boolean debug0, boolean debug1) {
+-        List<String> list = Lists.newArrayList();
+-
+-        for(ChatFormatting chatformatting : values()) {
+-            if ((!chatformatting.isColor() || debug0) && (!chatformatting.isFormat() || debug1)) {
+-                list.add(chatformatting.getName());
+-            }
+-        }
+-
+-        return list;
+-    }
+ }
