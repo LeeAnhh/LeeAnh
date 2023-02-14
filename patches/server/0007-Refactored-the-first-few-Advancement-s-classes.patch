@@ -1,0 +1,2467 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: LeeAnhh <summertwilighttimes@gmail.com>
+Date: Wed, 15 Feb 2023 03:02:32 +0700
+Subject: [PATCH] Refactored the first few Advancement's classes
+
+The TreeNodePosition was so hard to understand tho
+
+diff --git a/src/main/java/net/minecraft/advancements/Advancement.java b/src/main/java/net/minecraft/advancements/Advancement.java
+index 72b96158e85acdbd6608ba36aedf92ceb9423a90..92ee42d099d2cab9a04955940c027cb780994446 100644
+--- a/src/main/java/net/minecraft/advancements/Advancement.java
++++ b/src/main/java/net/minecraft/advancements/Advancement.java
+@@ -6,30 +6,27 @@ import com.google.common.collect.Sets;
+ import com.google.gson.JsonArray;
+ import com.google.gson.JsonObject;
+ import com.google.gson.JsonSyntaxException;
+-import java.util.Arrays;
+-import java.util.Map;
+-import java.util.Set;
+-import java.util.Map.Entry;
+-import java.util.function.Consumer;
+-import java.util.function.Function;
+-import javax.annotation.Nullable;
+ import net.minecraft.ChatFormatting;
+ import net.minecraft.advancements.critereon.DeserializationContext;
+ import net.minecraft.network.FriendlyByteBuf;
+-import net.minecraft.network.chat.Component;
+-import net.minecraft.network.chat.ComponentUtils;
+-import net.minecraft.network.chat.HoverEvent;
+-import net.minecraft.network.chat.Style;
+-import net.minecraft.network.chat.TextComponent;
++import net.minecraft.network.chat.*;
+ import net.minecraft.resources.ResourceLocation;
+ import net.minecraft.util.GsonHelper;
+ import net.minecraft.world.item.ItemStack;
+ import net.minecraft.world.level.ItemLike;
+ import org.apache.commons.lang3.ArrayUtils;
+ 
++import javax.annotation.Nullable;
++import java.util.Arrays;
++import java.util.Map;
++import java.util.Map.Entry;
++import java.util.Set;
++import java.util.function.Consumer;
++import java.util.function.Function;
++
+ public class Advancement {
+     private final Advancement parent;
+-    private final DisplayInfo display;
++    private final DisplayInfo displayInfo;
+     private final AdvancementRewards rewards;
+     private final ResourceLocation id;
+     private final Map<String, Criterion> criteria;
+@@ -37,39 +34,38 @@ public class Advancement {
+     private final Set<Advancement> children = Sets.newLinkedHashSet();
+     private final Component chatComponent;
+ 
+-    public Advancement(
+-        ResourceLocation debug1,
+-        @Nullable Advancement debug2,
+-        @Nullable DisplayInfo debug3,
+-        AdvancementRewards debug4,
+-        Map<String, Criterion> debug5,
+-        String[][] debug6
++    public Advancement(final ResourceLocation id,
++                       final @Nullable Advancement parent,
++                       final @Nullable DisplayInfo displayInfo,
++                       final AdvancementRewards rewards,
++                       final Map<String, Criterion> criteria,
++                       final String[][] requirements
+     ) {
+-        this.id = debug1;
+-        this.display = debug3;
+-        this.criteria = ImmutableMap.copyOf(debug5);
+-        this.parent = debug2;
+-        this.rewards = debug4;
+-        this.requirements = debug6;
+-        if (debug2 != null) {
+-            debug2.addChild(this);
+-        }
+-
+-        if (debug3 == null) {
+-            this.chatComponent = new TextComponent(debug1.toString());
++        this.id = id;
++        this.displayInfo = displayInfo;
++        this.criteria = ImmutableMap.copyOf(criteria);
++        this.parent = parent;
++        this.rewards = rewards;
++        this.requirements = requirements;
++        if (parent != null)
++            parent.addChild(this);
++
++        if (displayInfo == null) {
++            this.chatComponent = new TextComponent(id.toString());
+         } else {
+-            Component component = debug3.getTitle();
+-            ChatFormatting chatformatting = debug3.getFrame().getChatColor();
+-            Component component1 = ComponentUtils.mergeStyles(component.copy(), Style.EMPTY.withColor(chatformatting))
+-                .append("\n")
+-                .append(debug3.getDescription());
+-            Component component2 = component.copy().withStyle(debug1x -> debug1x.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, component1)));
+-            this.chatComponent = ComponentUtils.wrapInSquareBrackets(component2).withStyle(chatformatting);
++            final Component title = displayInfo.getTitle();
++            final ChatFormatting color = displayInfo.getFrame().getChatColor();
++            final Component description = displayInfo.getDescription();
++
++            final Component text = ComponentUtils.mergeStyles(title.copy(), Style.EMPTY.withColor(color)).append("\n").append(description);
++            final Component component = title.copy().withStyle(style -> style.withHoverEvent(new HoverEvent(HoverEvent.Action.SHOW_TEXT, text)));
++
++            this.chatComponent = ComponentUtils.wrapInSquareBrackets(component).withStyle(color);
+         }
+     }
+ 
+     public Advancement.Builder deconstruct() {
+-        return new Advancement.Builder(this.parent == null ? null : this.parent.getId(), this.display, this.rewards, this.criteria, this.requirements);
++        return new Advancement.Builder(this.parent == null ? null : this.parent.getId(), this.displayInfo, this.rewards, this.criteria, this.requirements);
+     }
+ 
+     @Nullable
+@@ -79,7 +75,7 @@ public class Advancement {
+ 
+     @Nullable
+     public DisplayInfo getDisplay() {
+-        return this.display;
++        return this.displayInfo;
+     }
+ 
+     public AdvancementRewards getRewards() {
+@@ -89,18 +85,18 @@ public class Advancement {
+     @Override
+     public String toString() {
+         return "SimpleAdvancement{id="
+-            + this.getId()
+-            + ", parent="
+-            + (this.parent == null ? "null" : this.parent.getId())
+-            + ", display="
+-            + this.display
+-            + ", rewards="
+-            + this.rewards
+-            + ", criteria="
+-            + this.criteria
+-            + ", requirements="
+-            + Arrays.deepToString(this.requirements)
+-            + '}';
++                + this.getId()
++                + ", parent="
++                + (this.parent == null ? "null" : this.parent.getId())
++                + ", display="
++                + this.displayInfo
++                + ", rewards="
++                + this.rewards
++                + ", criteria="
++                + this.criteria
++                + ", requirements="
++                + Arrays.deepToString(this.requirements)
++                + '}';
+     }
+ 
+     public Iterable<Advancement> getChildren() {
+@@ -111,8 +107,8 @@ public class Advancement {
+         return this.criteria;
+     }
+ 
+-    public void addChild(Advancement debug1) {
+-        this.children.add(debug1);
++    public void addChild(final Advancement child) {
++        this.children.add(child);
+     }
+ 
+     public ResourceLocation getId() {
+@@ -120,15 +116,11 @@ public class Advancement {
+     }
+ 
+     @Override
+-    public boolean equals(Object debug1) {
+-        if (this == debug1) {
+-            return true;
+-        } else if (!(debug1 instanceof Advancement)) {
+-            return false;
+-        } else {
+-            Advancement advancement = (Advancement)debug1;
++    public boolean equals(final Object obj) {
++        if (this == obj) return true;
++        if (obj instanceof Advancement advancement)
+             return this.id.equals(advancement.id);
+-        }
++        return false;
+     }
+ 
+     @Override
+@@ -147,20 +139,22 @@ public class Advancement {
+     public static class Builder {
+         private ResourceLocation parentId;
+         private Advancement parent;
+-        private DisplayInfo display;
++        private DisplayInfo displayInfo;
+         private AdvancementRewards rewards = AdvancementRewards.EMPTY;
+         private Map<String, Criterion> criteria = Maps.newLinkedHashMap();
+         private String[][] requirements;
+         private RequirementsStrategy requirementsStrategy = RequirementsStrategy.AND;
+ 
+-        private Builder(
+-            @Nullable ResourceLocation debug1, @Nullable DisplayInfo debug2, AdvancementRewards debug3, Map<String, Criterion> debug4, String[][] debug5
+-        ) {
+-            this.parentId = debug1;
+-            this.display = debug2;
+-            this.rewards = debug3;
+-            this.criteria = debug4;
+-            this.requirements = debug5;
++        private Builder(final @Nullable ResourceLocation parentId,
++                        final @Nullable DisplayInfo displayInfo,
++                        final AdvancementRewards rewards,
++                        final Map<String, Criterion> criteria,
++                        final String[][] requirements) {
++            this.parentId = parentId;
++            this.displayInfo = displayInfo;
++            this.rewards = rewards;
++            this.criteria = criteria;
++            this.requirements = requirements;
+         }
+ 
+         private Builder() {
+@@ -170,167 +164,236 @@ public class Advancement {
+             return new Advancement.Builder();
+         }
+ 
+-        public Advancement.Builder parent(Advancement debug1) {
+-            this.parent = debug1;
++        private static String[][] getRequirements(final JsonArray reqs_jsonArray, final Map<String, Criterion> criteria) {
++            if (criteria.isEmpty())
++                throw new JsonSyntaxException("Advancement criteria cannot be empty");
++
++            String[][] requirements;
++            if (reqs_jsonArray == null || reqs_jsonArray.size() == 0) {
++                requirements = new String[criteria.size()][];
++                int k = 0;
++
++                for (final String crite : criteria.keySet()) {
++                    requirements[k++] = new String[]{crite};
++                }
++            } else {
++                requirements = new String[reqs_jsonArray.size()][];
++                for (int i = 0; i < reqs_jsonArray.size(); ++i) {
++                    final JsonArray req_jsonArray = GsonHelper.convertToJsonArray(reqs_jsonArray.get(i), "requirements[" + i + "]");
++                    requirements[i] = new String[req_jsonArray.size()];
++
++                    for (int j = 0; j < req_jsonArray.size(); ++j) {
++                        requirements[i][j] = GsonHelper.convertToString(req_jsonArray.get(j), "requirements[" + i + "][" + j + "]");
++                    }
++                }
++            }
++            return checkedCriterion(requirements, criteria);
++        }
++
++        private static String[][] checkedCriterion(final String[][] requirements, final Map<String, Criterion> criteria) {
++            for (final String[] requirement : requirements) {
++                for (final String crite : requirement) {
++                    if (!criteria.containsKey(crite))
++                        throw new JsonSyntaxException("Unknown required criterion '" + crite + "'");
++                }
++            }
++
++            for (final String crite : criteria.keySet()) {
++                boolean flag = false;
++
++                for (final String[] requirement : requirements) {
++                    if (ArrayUtils.contains(requirement, crite)) {
++                        flag = true;
++                        break;
++                    }
++                }
++
++                if (!flag) {
++                    throw new JsonSyntaxException
++                            ("Criterion '" + crite + "' isn't a requirement for completion. This isn't supported behaviour, all criteria must be required.");
++                }
++            }
++            return requirements;
++        }
++
++        public static Advancement.Builder fromJson(final JsonObject json, final DeserializationContext context) {
++            final JsonArray reqs_jsonArray = GsonHelper.getAsJsonArray(json, "requirements", new JsonArray());
++
++            final ResourceLocation parentId = json.has("parent") ? new ResourceLocation(GsonHelper.getAsString(json, "parent")) : null;
++            final DisplayInfo displayInfo = json.has("display") ? DisplayInfo.fromJson(GsonHelper.getAsJsonObject(json, "display")) : null;
++            final AdvancementRewards rewards = json.has("rewards")
++                    ? AdvancementRewards.deserialize(GsonHelper.getAsJsonObject(json, "rewards")) : AdvancementRewards.EMPTY;
++            final Map<String, Criterion> criteria = Criterion.criteriaFromJson(GsonHelper.getAsJsonObject(json, "criteria"), context);
++            final String[][] requirements = getRequirements(reqs_jsonArray, criteria);
++
++            return new Advancement.Builder(parentId, displayInfo, rewards, criteria, requirements);
++        }
++
++        public static Advancement.Builder fromNetwork(final FriendlyByteBuf byteBuf) {
++            final ResourceLocation parentId = byteBuf.readBoolean() ? byteBuf.readResourceLocation() : null;
++            final DisplayInfo disPlayInfo = byteBuf.readBoolean() ? DisplayInfo.fromNetwork(byteBuf) : null;
++            final Map<String, Criterion> criteria = Criterion.criteriaFromNetwork(byteBuf);
++            final String[][] requirements = new String[byteBuf.readVarInt()][];
++
++            for (int i = 0; i < requirements.length; ++i) {
++                requirements[i] = new String[byteBuf.readVarInt()];
++
++                for (int j = 0; j < requirements[i].length; ++j) {
++                    requirements[i][j] = byteBuf.readUtf(32767);
++                }
++            }
++
++            return new Advancement.Builder(parentId, disPlayInfo, AdvancementRewards.EMPTY, criteria, requirements);
++        }
++
++        private static JsonArray getReqs_jsonArray(final JsonArray reqs_jsonArray, final String[][] requirements) {
++            for (final String[] requirement : requirements) {
++                final JsonArray req_jsonArray = new JsonArray();
++                for (final String crite : requirement)
++                    req_jsonArray.add(crite);
++                reqs_jsonArray.add(req_jsonArray);
++            }
++            return reqs_jsonArray;
++        }
++
++        public Advancement.Builder parent(final Advancement parent) {
++            this.parent = parent;
+             return this;
+         }
+ 
+-        public Advancement.Builder parent(ResourceLocation debug1) {
+-            this.parentId = debug1;
++        public Advancement.Builder parent(final ResourceLocation parentId) {
++            this.parentId = parentId;
+             return this;
+         }
+ 
+-        public Advancement.Builder display(
+-            ItemStack debug1,
+-            Component debug2,
+-            Component debug3,
+-            @Nullable ResourceLocation debug4,
+-            FrameType debug5,
+-            boolean debug6,
+-            boolean debug7,
+-            boolean debug8
+-        ) {
+-            return this.display(new DisplayInfo(debug1, debug2, debug3, debug4, debug5, debug6, debug7, debug8));
++        public Advancement.Builder display(final ItemStack item,
++                                           final Component title,
++                                           final Component description,
++                                           final @Nullable ResourceLocation background,
++                                           final FrameType frame,
++                                           final boolean showToast,
++                                           final boolean announceChat,
++                                           final boolean isHidden) {
++            return this.display(new DisplayInfo(item, title, description, background, frame, showToast, announceChat, isHidden));
+         }
+ 
+-        public Advancement.Builder display(
+-            ItemLike debug1,
+-            Component debug2,
+-            Component debug3,
+-            @Nullable ResourceLocation debug4,
+-            FrameType debug5,
+-            boolean debug6,
+-            boolean debug7,
+-            boolean debug8
+-        ) {
+-            return this.display(new DisplayInfo(new ItemStack(debug1.asItem()), debug2, debug3, debug4, debug5, debug6, debug7, debug8));
++        public Advancement.Builder display(ItemLike item,
++                                           final Component title,
++                                           final Component description,
++                                           final @Nullable ResourceLocation background,
++                                           final FrameType frame,
++                                           final boolean showToast,
++                                           final boolean announceChat,
++                                           final boolean isHidden) {
++            return this.display(new DisplayInfo(new ItemStack(item.asItem()), title, description, background, frame, showToast, announceChat, isHidden));
+         }
+ 
+-        public Advancement.Builder display(DisplayInfo debug1) {
+-            this.display = debug1;
++        public Advancement.Builder display(final DisplayInfo displayInfo) {
++            this.displayInfo = displayInfo;
+             return this;
+         }
+ 
+-        public Advancement.Builder rewards(AdvancementRewards.Builder debug1) {
+-            return this.rewards(debug1.build());
++        public Advancement.Builder rewards(final AdvancementRewards.Builder rewards) {
++            return this.rewards(rewards.build());
+         }
+ 
+-        public Advancement.Builder rewards(AdvancementRewards debug1) {
+-            this.rewards = debug1;
++        public Advancement.Builder rewards(final AdvancementRewards rewards) {
++            this.rewards = rewards;
+             return this;
+         }
+ 
+-        public Advancement.Builder addCriterion(String debug1, CriterionTriggerInstance debug2) {
+-            return this.addCriterion(debug1, new Criterion(debug2));
++        public Advancement.Builder addCriterion(final String crite, final CriterionTriggerInstance triggerInstance) {
++            return this.addCriterion(crite, new Criterion(triggerInstance));
+         }
+ 
+-        public Advancement.Builder addCriterion(String debug1, Criterion debug2) {
+-            if (this.criteria.containsKey(debug1)) {
+-                throw new IllegalArgumentException("Duplicate criterion " + debug1);
+-            } else {
+-                this.criteria.put(debug1, debug2);
+-                return this;
+-            }
++        public Advancement.Builder addCriterion(final String crite, final Criterion criterion) {
++            if (this.criteria.containsKey(crite))
++                throw new IllegalArgumentException("Duplicate criterion " + crite);
++            this.criteria.put(crite, criterion);
++            return this;
+         }
+ 
+-        public Advancement.Builder requirements(RequirementsStrategy debug1) {
+-            this.requirementsStrategy = debug1;
++        public Advancement.Builder requirements(final RequirementsStrategy req_strat) {
++            this.requirementsStrategy = req_strat;
+             return this;
+         }
+ 
+-        public boolean canBuild(Function<ResourceLocation, Advancement> debug1) {
+-            if (this.parentId == null) {
++        public boolean canBuild(final Function<ResourceLocation, Advancement> func) {
++            if (this.parentId == null)
+                 return true;
+-            } else {
+-                if (this.parent == null) {
+-                    this.parent = debug1.apply(this.parentId);
+-                }
+ 
+-                return this.parent != null;
+-            }
++            if (this.parent == null)
++                this.parent = func.apply(this.parentId);
++
++            return this.parent != null;
+         }
+ 
+-        public Advancement build(ResourceLocation debug1) {
+-            if (!this.canBuild(debug0 -> null)) {
++        public Advancement build(final ResourceLocation id) {
++            if (!this.canBuild(func -> null))
+                 throw new IllegalStateException("Tried to build incomplete advancement!");
+-            } else {
+-                if (this.requirements == null) {
+-                    this.requirements = this.requirementsStrategy.createRequirements(this.criteria.keySet());
+-                }
+ 
+-                return new Advancement(debug1, this.parent, this.display, this.rewards, this.criteria, this.requirements);
+-            }
++            if (this.requirements == null)
++                this.requirements = this.requirementsStrategy.createRequirements(this.criteria.keySet());
++
++            return new Advancement(id, this.parent, this.displayInfo, this.rewards, this.criteria, this.requirements);
+         }
+ 
+-        public Advancement save(Consumer<Advancement> debug1, String debug2) {
+-            Advancement advancement = this.build(new ResourceLocation(debug2));
+-            debug1.accept(advancement);
++        public Advancement save(final Consumer<Advancement> consumer, final String id) {
++            final Advancement advancement = this.build(new ResourceLocation(id));
++            consumer.accept(advancement);
+             return advancement;
+         }
+ 
+         public JsonObject serializeToJson() {
+-            if (this.requirements == null) {
+-                this.requirements = this.requirementsStrategy.createRequirements(this.criteria.keySet());
+-            }
++            final JsonObject json = new JsonObject();
++            final JsonObject criteria_json = new JsonObject();
++            final JsonArray reqs_jsonArray = getReqs_jsonArray(new JsonArray(), this.requirements);
+ 
+-            JsonObject jsonobject = new JsonObject();
+-            if (this.parent != null) {
+-                jsonobject.addProperty("parent", this.parent.getId().toString());
+-            } else if (this.parentId != null) {
+-                jsonobject.addProperty("parent", this.parentId.toString());
+-            }
++            for (final Entry<String, Criterion> entry : this.criteria.entrySet())
++                criteria_json.add(entry.getKey(), entry.getValue().serializeToJson());
+ 
+-            if (this.display != null) {
+-                jsonobject.add("display", this.display.serializeToJson());
+-            }
++            json.add("criteria", criteria_json);
++            json.add("requirements", reqs_jsonArray);
+ 
+-            jsonobject.add("rewards", this.rewards.serializeToJson());
+-            JsonObject jsonobject1 = new JsonObject();
++            if (this.requirements == null)
++                this.requirements = this.requirementsStrategy.createRequirements(this.criteria.keySet());
+ 
+-            for(Entry<String, Criterion> entry : this.criteria.entrySet()) {
+-                jsonobject1.add(entry.getKey(), entry.getValue().serializeToJson());
++            if (this.parent != null) {
++                json.addProperty("parent", this.parent.getId().toString());
++            } else if (this.parentId != null) {
++                json.addProperty("parent", this.parentId.toString());
+             }
+ 
+-            jsonobject.add("criteria", jsonobject1);
+-            JsonArray jsonarray1 = new JsonArray();
+-
+-            for(String[] astring : this.requirements) {
+-                JsonArray jsonarray = new JsonArray();
+-
+-                for(String s : astring) {
+-                    jsonarray.add(s);
+-                }
+-
+-                jsonarray1.add(jsonarray);
+-            }
++            if (this.displayInfo != null)
++                json.add("display", this.displayInfo.serializeToJson());
++            json.add("rewards", this.rewards.serializeToJson());
+ 
+-            jsonobject.add("requirements", jsonarray1);
+-            return jsonobject;
++            return json;
+         }
+ 
+-        public void serializeToNetwork(FriendlyByteBuf debug1) {
++        public void serializeToNetwork(final FriendlyByteBuf byteBuf) {
+             if (this.parentId == null) {
+-                debug1.writeBoolean(false);
++                byteBuf.writeBoolean(false);
+             } else {
+-                debug1.writeBoolean(true);
+-                debug1.writeResourceLocation(this.parentId);
++                byteBuf.writeBoolean(true);
++                byteBuf.writeResourceLocation(this.parentId);
+             }
+ 
+-            if (this.display == null) {
+-                debug1.writeBoolean(false);
++            if (this.displayInfo == null) {
++                byteBuf.writeBoolean(false);
+             } else {
+-                debug1.writeBoolean(true);
+-                this.display.serializeToNetwork(debug1);
++                byteBuf.writeBoolean(true);
++                this.displayInfo.serializeToNetwork(byteBuf);
+             }
+ 
+-            Criterion.serializeToNetwork(this.criteria, debug1);
+-            debug1.writeVarInt(this.requirements.length);
++            Criterion.serializeToNetwork(this.criteria, byteBuf);
++            byteBuf.writeVarInt(this.requirements.length);
+ 
+-            for(String[] astring : this.requirements) {
+-                debug1.writeVarInt(astring.length);
++            for (final String[] requirement : this.requirements) {
++                byteBuf.writeVarInt(requirement.length);
+ 
+-                for(String s : astring) {
+-                    debug1.writeUtf(s);
++                for (final String crite : requirement) {
++                    byteBuf.writeUtf(crite);
+                 }
+             }
+         }
+@@ -338,97 +401,16 @@ public class Advancement {
+         @Override
+         public String toString() {
+             return "Task Advancement{parentId="
+-                + this.parentId
+-                + ", display="
+-                + this.display
+-                + ", rewards="
+-                + this.rewards
+-                + ", criteria="
+-                + this.criteria
+-                + ", requirements="
+-                + Arrays.deepToString(this.requirements)
+-                + '}';
+-        }
+-
+-        public static Advancement.Builder fromJson(JsonObject debug0, DeserializationContext debug1) {
+-            ResourceLocation resourcelocation = debug0.has("parent") ? new ResourceLocation(GsonHelper.getAsString(debug0, "parent")) : null;
+-            DisplayInfo displayinfo = debug0.has("display") ? DisplayInfo.fromJson(GsonHelper.getAsJsonObject(debug0, "display")) : null;
+-            AdvancementRewards advancementrewards = debug0.has("rewards")
+-                ? AdvancementRewards.deserialize(GsonHelper.getAsJsonObject(debug0, "rewards"))
+-                : AdvancementRewards.EMPTY;
+-            Map<String, Criterion> map = Criterion.criteriaFromJson(GsonHelper.getAsJsonObject(debug0, "criteria"), debug1);
+-            if (map.isEmpty()) {
+-                throw new JsonSyntaxException("Advancement criteria cannot be empty");
+-            } else {
+-                JsonArray jsonarray = GsonHelper.getAsJsonArray(debug0, "requirements", new JsonArray());
+-                String[][] astring = new String[jsonarray.size()][];
+-
+-                for(int i = 0; i < jsonarray.size(); ++i) {
+-                    JsonArray jsonarray1 = GsonHelper.convertToJsonArray(jsonarray.get(i), "requirements[" + i + "]");
+-                    astring[i] = new String[jsonarray1.size()];
+-
+-                    for(int j = 0; j < jsonarray1.size(); ++j) {
+-                        astring[i][j] = GsonHelper.convertToString(jsonarray1.get(j), "requirements[" + i + "][" + j + "]");
+-                    }
+-                }
+-
+-                if (astring.length == 0) {
+-                    astring = new String[map.size()][];
+-                    int k = 0;
+-
+-                    for(String s2 : map.keySet()) {
+-                        astring[k++] = new String[]{s2};
+-                    }
+-                }
+-
+-                for(String[] astring1 : astring) {
+-                    if (astring1.length == 0 && map.isEmpty()) {
+-                        throw new JsonSyntaxException("Requirement entry cannot be empty");
+-                    }
+-
+-                    for(String s : astring1) {
+-                        if (!map.containsKey(s)) {
+-                            throw new JsonSyntaxException("Unknown required criterion '" + s + "'");
+-                        }
+-                    }
+-                }
+-
+-                for(String s1 : map.keySet()) {
+-                    boolean flag = false;
+-
+-                    for(String[] astring2 : astring) {
+-                        if (ArrayUtils.contains(astring2, s1)) {
+-                            flag = true;
+-                            break;
+-                        }
+-                    }
+-
+-                    if (!flag) {
+-                        throw new JsonSyntaxException(
+-                            "Criterion '" + s1 + "' isn't a requirement for completion. This isn't supported behaviour, all criteria must be required."
+-                        );
+-                    }
+-                }
+-
+-                return new Advancement.Builder(resourcelocation, displayinfo, advancementrewards, map, astring);
+-            }
+-        }
+-
+-        public static Advancement.Builder fromNetwork(FriendlyByteBuf debug0) {
+-            ResourceLocation resourcelocation = debug0.readBoolean() ? debug0.readResourceLocation() : null;
+-            DisplayInfo displayinfo = debug0.readBoolean() ? DisplayInfo.fromNetwork(debug0) : null;
+-            Map<String, Criterion> map = Criterion.criteriaFromNetwork(debug0);
+-            String[][] astring = new String[debug0.readVarInt()][];
+-
+-            for(int i = 0; i < astring.length; ++i) {
+-                astring[i] = new String[debug0.readVarInt()];
+-
+-                for(int j = 0; j < astring[i].length; ++j) {
+-                    astring[i][j] = debug0.readUtf(32767);
+-                }
+-            }
+-
+-            return new Advancement.Builder(resourcelocation, displayinfo, AdvancementRewards.EMPTY, map, astring);
++                    + this.parentId
++                    + ", display="
++                    + this.displayInfo
++                    + ", rewards="
++                    + this.rewards
++                    + ", criteria="
++                    + this.criteria
++                    + ", requirements="
++                    + Arrays.deepToString(this.requirements)
++                    + '}';
+         }
+ 
+         public Map<String, Criterion> getCriteria() {
+diff --git a/src/main/java/net/minecraft/advancements/AdvancementList.java b/src/main/java/net/minecraft/advancements/AdvancementList.java
+index a6173b007ed1d2ff940c3a73874bdcbea100a4df..99a20475caadbb1cb71126057e02ef191c953cf0 100644
+--- a/src/main/java/net/minecraft/advancements/AdvancementList.java
++++ b/src/main/java/net/minecraft/advancements/AdvancementList.java
+@@ -3,60 +3,48 @@ package net.minecraft.advancements;
+ import com.google.common.base.Functions;
+ import com.google.common.collect.Maps;
+ import com.google.common.collect.Sets;
++import net.minecraft.resources.ResourceLocation;
++import org.apache.logging.log4j.LogManager;
++import org.apache.logging.log4j.Logger;
++
++import javax.annotation.Nullable;
+ import java.util.Collection;
+ import java.util.Iterator;
+ import java.util.Map;
+-import java.util.Set;
+ import java.util.Map.Entry;
++import java.util.Set;
+ import java.util.function.Function;
+-import javax.annotation.Nullable;
+-import net.minecraft.resources.ResourceLocation;
+-import org.apache.logging.log4j.LogManager;
+-import org.apache.logging.log4j.Logger;
+ 
+ public class AdvancementList {
+     private static final Logger LOGGER = LogManager.getLogger();
+     private final Map<ResourceLocation, Advancement> advancements = Maps.newHashMap();
+     private final Set<Advancement> roots = Sets.newLinkedHashSet();
+-    private final Set<Advancement> tasks = Sets.newLinkedHashSet();
+-    private AdvancementList.Listener listener;
+-
+-    public AdvancementList() {
+-    }
+ 
+-    public void add(Map<ResourceLocation, Advancement.Builder> debug1) {
+-        Function<ResourceLocation, Advancement> function = Functions.forMap(this.advancements, null);
++    public void add(final Map<ResourceLocation, Advancement.Builder> advancements) {
++        final Function<ResourceLocation, Advancement> function = Functions.forMap(this.advancements, null);
+ 
+-        while(!debug1.isEmpty()) {
++        while (!advancements.isEmpty()) {
+             boolean flag = false;
+-            Iterator<Entry<ResourceLocation, Advancement.Builder>> iterator = debug1.entrySet().iterator();
++            final Iterator<Entry<ResourceLocation, Advancement.Builder>> adv_Iterator = advancements.entrySet().iterator();
+ 
+-            while(iterator.hasNext()) {
+-                Entry<ResourceLocation, Advancement.Builder> entry = iterator.next();
+-                ResourceLocation resourcelocation = entry.getKey();
+-                Advancement.Builder advancement$builder = entry.getValue();
+-                if (advancement$builder.canBuild(function)) {
+-                    Advancement advancement = advancement$builder.build(resourcelocation);
+-                    this.advancements.put(resourcelocation, advancement);
++            while (adv_Iterator.hasNext()) {
++                final Entry<ResourceLocation, Advancement.Builder> entry = adv_Iterator.next();
++                final ResourceLocation resourceLocation = entry.getKey();
++                final Advancement.Builder adv_Builder = entry.getValue();
++
++                if (adv_Builder.canBuild(function)) {
+                     flag = true;
+-                    iterator.remove();
+-                    if (advancement.getParent() == null) {
++                    final Advancement advancement = adv_Builder.build(resourceLocation);
++                    this.advancements.put(resourceLocation, advancement);
++                    adv_Iterator.remove();
++                    if (advancement.getParent() == null)
+                         this.roots.add(advancement);
+-                        if (this.listener != null) {
+-                            this.listener.onAddAdvancementRoot(advancement);
+-                        }
+-                    } else {
+-                        this.tasks.add(advancement);
+-                        if (this.listener != null) {
+-                            this.listener.onAddAdvancementTask(advancement);
+-                        }
+-                    }
+                 }
+             }
+ 
+             if (!flag) {
+-                for(Entry<ResourceLocation, Advancement.Builder> entry1 : debug1.entrySet()) {
+-                    LOGGER.error("Couldn't load advancement {}: {}", entry1.getKey(), entry1.getValue());
++                for (final Entry<ResourceLocation, Advancement.Builder> entry : advancements.entrySet()) {
++                    LOGGER.error("Couldn't load advancement {}: {}", entry.getKey(), entry.getValue());
+                 }
+                 break;
+             }
+@@ -74,13 +62,7 @@ public class AdvancementList {
+     }
+ 
+     @Nullable
+-    public Advancement get(ResourceLocation debug1) {
+-        return this.advancements.get(debug1);
+-    }
+-
+-    public interface Listener {
+-        void onAddAdvancementRoot(Advancement var1);
+-
+-        void onAddAdvancementTask(Advancement var1);
++    public Advancement get(final ResourceLocation advancement) {
++        return this.advancements.get(advancement);
+     }
+ }
+diff --git a/src/main/java/net/minecraft/advancements/AdvancementProgress.java b/src/main/java/net/minecraft/advancements/AdvancementProgress.java
+index 7316b20f3d82b8d427d54e0798ba52e3e22212a4..2e0e757f83b4e4433941dbc877f58f9951d7b086 100644
+--- a/src/main/java/net/minecraft/advancements/AdvancementProgress.java
++++ b/src/main/java/net/minecraft/advancements/AdvancementProgress.java
+@@ -2,96 +2,85 @@ package net.minecraft.advancements;
+ 
+ import com.google.common.collect.Lists;
+ import com.google.common.collect.Maps;
+-import com.google.gson.JsonDeserializationContext;
+-import com.google.gson.JsonDeserializer;
+-import com.google.gson.JsonElement;
+-import com.google.gson.JsonObject;
+-import com.google.gson.JsonParseException;
+-import com.google.gson.JsonSerializationContext;
+-import com.google.gson.JsonSerializer;
+-import java.lang.reflect.Type;
+-import java.util.Arrays;
+-import java.util.Date;
+-import java.util.List;
+-import java.util.Map;
+-import java.util.Set;
+-import java.util.Map.Entry;
+-import javax.annotation.Nullable;
++import com.google.gson.*;
+ import net.minecraft.network.FriendlyByteBuf;
+ import net.minecraft.util.GsonHelper;
+ 
++import javax.annotation.Nullable;
++import java.lang.reflect.Type;
++import java.util.*;
++import java.util.Map.Entry;
++
+ public class AdvancementProgress implements Comparable<AdvancementProgress> {
+     private final Map<String, CriterionProgress> criteria = Maps.newHashMap();
+     private String[][] requirements = new String[0][];
+ 
+-    public AdvancementProgress() {
++    public static AdvancementProgress fromNetwork(final FriendlyByteBuf byteBuf) {
++        final AdvancementProgress adv_progress = new AdvancementProgress();
++        for (int j = 0; j < byteBuf.readVarInt(); ++j)
++            adv_progress.criteria.put(byteBuf.readUtf(Short.MAX_VALUE), CriterionProgress.fromNetwork(byteBuf));
++
++
++        return adv_progress;
+     }
+ 
+-    public void update(Map<String, Criterion> debug1, String[][] debug2) {
+-        Set<String> set = debug1.keySet();
+-        this.criteria.entrySet().removeIf(debug1x -> !set.contains(debug1x.getKey()));
++    public void update(final Map<String, Criterion> criteria, final String[][] requirements) {
++        final Set<String> criteria_set = criteria.keySet();
++        this.criteria.entrySet().removeIf(value -> !criteria_set.contains(value.getKey())); // Check if that criteria is strange or unknown to remove
+ 
+-        for(String s : set) {
+-            if (!this.criteria.containsKey(s)) {
+-                this.criteria.put(s, new CriterionProgress());
++        for (final String crite : criteria_set) {
++            if (!this.criteria.containsKey(crite)) {
++                this.criteria.put(crite, new CriterionProgress());
+             }
+         }
+ 
+-        this.requirements = debug2;
++        this.requirements = requirements;
+     }
+ 
+     public boolean isDone() {
+-        if (this.requirements.length == 0) {
+-            return false;
+-        } else {
+-            for(String[] astring : this.requirements) {
+-                boolean flag = false;
+-
+-                for(String s : astring) {
+-                    CriterionProgress criterionprogress = this.getCriterion(s);
+-                    if (criterionprogress != null && criterionprogress.isDone()) {
+-                        flag = true;
+-                        break;
+-                    }
+-                }
+-
+-                if (!flag) {
+-                    return false;
++        if (this.requirements.length == 0) return false;
++        for (final String[] requirement : this.requirements) {
++            boolean flag = false;
++
++            for (final String crite : requirement) {
++                final CriterionProgress crite_progress = this.getCriterion(crite);
++                if (crite_progress != null && crite_progress.isDone()) {
++                    flag = true;
++                    break;
+                 }
+             }
+ 
+-            return true;
++            if (!flag)
++                return false;
+         }
++
++        return true;
+     }
+ 
+     public boolean hasProgress() {
+-        for(CriterionProgress criterionprogress : this.criteria.values()) {
+-            if (criterionprogress.isDone()) {
++        for (final CriterionProgress crite_progress : this.criteria.values())
++            if (crite_progress.isDone())
+                 return true;
+-            }
+-        }
+ 
+         return false;
+     }
+ 
+-    public boolean grantProgress(String debug1) {
+-        CriterionProgress criterionprogress = this.criteria.get(debug1);
+-        if (criterionprogress != null && !criterionprogress.isDone()) {
+-            criterionprogress.grant();
++    public boolean grantProgress(final String crite) {
++        final CriterionProgress crite_progress = this.criteria.get(crite);
++        if (crite_progress != null && !crite_progress.isDone()) {
++            crite_progress.grant();
+             return true;
+-        } else {
+-            return false;
+         }
++        return false;
+     }
+ 
+-    public boolean revokeProgress(String debug1) {
+-        CriterionProgress criterionprogress = this.criteria.get(debug1);
+-        if (criterionprogress != null && criterionprogress.isDone()) {
+-            criterionprogress.revoke();
++    public boolean revokeProgress(final String crite) {
++        final CriterionProgress crite_progress = this.criteria.get(crite);
++        if (crite_progress != null && crite_progress.isDone()) {
++            crite_progress.revoke();
+             return true;
+-        } else {
+-            return false;
+         }
++        return false;
+     }
+ 
+     @Override
+@@ -99,114 +88,91 @@ public class AdvancementProgress implements Comparable<AdvancementProgress> {
+         return "AdvancementProgress{criteria=" + this.criteria + ", requirements=" + Arrays.deepToString(this.requirements) + '}';
+     }
+ 
+-    public void serializeToNetwork(FriendlyByteBuf debug1) {
+-        debug1.writeVarInt(this.criteria.size());
+-
+-        for(Entry<String, CriterionProgress> entry : this.criteria.entrySet()) {
+-            debug1.writeUtf(entry.getKey());
+-            entry.getValue().serializeToNetwork(debug1);
+-        }
+-    }
+-
+-    public static AdvancementProgress fromNetwork(FriendlyByteBuf debug0) {
+-        AdvancementProgress advancementprogress = new AdvancementProgress();
+-        int i = debug0.readVarInt();
+-
+-        for(int j = 0; j < i; ++j) {
+-            advancementprogress.criteria.put(debug0.readUtf(32767), CriterionProgress.fromNetwork(debug0));
++    public void serializeToNetwork(final FriendlyByteBuf byteBuf) {
++        byteBuf.writeVarInt(this.criteria.size());
++        for (final Entry<String, CriterionProgress> entry : this.criteria.entrySet()) {
++            byteBuf.writeUtf(entry.getKey());
++            entry.getValue().serializeToNetwork(byteBuf);
+         }
+-
+-        return advancementprogress;
+     }
+ 
+     @Nullable
+-    public CriterionProgress getCriterion(String debug1) {
+-        return this.criteria.get(debug1);
++    public CriterionProgress getCriterion(final String crite) {
++        return this.criteria.get(crite);
+     }
+ 
+     public Iterable<String> getRemainingCriteria() {
+-        List<String> list = Lists.newArrayList();
++        final List<String> criteria = Lists.newArrayList();
+ 
+-        for(Entry<String, CriterionProgress> entry : this.criteria.entrySet()) {
+-            if (!entry.getValue().isDone()) {
+-                list.add(entry.getKey());
+-            }
+-        }
++        for (final Entry<String, CriterionProgress> entry : this.criteria.entrySet())
++            if (!entry.getValue().isDone())
++                criteria.add(entry.getKey());
+ 
+-        return list;
++        return criteria;
+     }
+ 
+     public Iterable<String> getCompletedCriteria() {
+-        List<String> list = Lists.newArrayList();
++        final List<String> criteria = Lists.newArrayList();
+ 
+-        for(Entry<String, CriterionProgress> entry : this.criteria.entrySet()) {
+-            if (entry.getValue().isDone()) {
+-                list.add(entry.getKey());
+-            }
+-        }
++        for (final Entry<String, CriterionProgress> entry : this.criteria.entrySet())
++            if (entry.getValue().isDone())
++                criteria.add(entry.getKey());
+ 
+-        return list;
++        return criteria;
+     }
+ 
+     @Nullable
+     public Date getFirstProgressDate() {
+         Date date = null;
+-
+-        for(CriterionProgress criterionprogress : this.criteria.values()) {
+-            if (criterionprogress.isDone() && (date == null || criterionprogress.getObtained().before(date))) {
+-                date = criterionprogress.getObtained();
+-            }
+-        }
++        for (final CriterionProgress crite_progress : this.criteria.values())
++            if (crite_progress.isDone() && (date == null || crite_progress.getObtained().before(date)))
++                date = crite_progress.getObtained();
+ 
+         return date;
+     }
+ 
+-    public int compareTo(AdvancementProgress debug1) {
+-        Date date = this.getFirstProgressDate();
+-        Date date1 = debug1.getFirstProgressDate();
+-        if (date == null && date1 != null) {
+-            return 1;
+-        } else if (date != null && date1 == null) {
+-            return -1;
+-        } else {
+-            return date == null && date1 == null ? 0 : date.compareTo(date1);
+-        }
++    public int compareTo(final AdvancementProgress adv_progress) {
++        Date origin = this.getFirstProgressDate();
++        Date other = adv_progress.getFirstProgressDate();
++        if (origin == null && other != null) return 1;
++        if (origin != null && other == null) return -1;
++        return origin == null && other == null ? 0 : origin.compareTo(other);
+     }
+ 
+     public static class Serializer implements JsonDeserializer<AdvancementProgress>, JsonSerializer<AdvancementProgress> {
+-        public Serializer() {
+-        }
+ 
+-        public JsonElement serialize(AdvancementProgress debug1, Type debug2, JsonSerializationContext debug3) {
+-            JsonObject jsonobject = new JsonObject();
+-            JsonObject jsonobject1 = new JsonObject();
++        public JsonElement serialize(final AdvancementProgress adv_progress, final Type type, final JsonSerializationContext serializationContext) {
++            final JsonObject json = new JsonObject();
++            final JsonObject crite_progress_json = new JsonObject();
+ 
+-            for(Entry<String, CriterionProgress> entry : debug1.criteria.entrySet()) {
+-                CriterionProgress criterionprogress = entry.getValue();
+-                if (criterionprogress.isDone()) {
+-                    jsonobject1.add(entry.getKey(), criterionprogress.serializeToJson());
+-                }
+-            }
++            for (final Entry<String, CriterionProgress> entry : adv_progress.criteria.entrySet()) {
++                final String crite = entry.getKey();
++                final CriterionProgress crite_progress = entry.getValue();
+ 
+-            if (!jsonobject1.entrySet().isEmpty()) {
+-                jsonobject.add("criteria", jsonobject1);
++                if (crite_progress.isDone())
++                    crite_progress_json.add(crite, crite_progress.serializeToJson());
+             }
+ 
+-            jsonobject.addProperty("done", debug1.isDone());
+-            return jsonobject;
++            if (!crite_progress_json.entrySet().isEmpty())
++                json.add("criteria", crite_progress_json);
++
++            json.addProperty("done", adv_progress.isDone());
++            return json;
+         }
+ 
+-        public AdvancementProgress deserialize(JsonElement debug1, Type debug2, JsonDeserializationContext debug3) throws JsonParseException {
+-            JsonObject jsonobject = GsonHelper.convertToJsonObject(debug1, "advancement");
+-            JsonObject jsonobject1 = GsonHelper.getAsJsonObject(jsonobject, "criteria", new JsonObject());
+-            AdvancementProgress advancementprogress = new AdvancementProgress();
++        public AdvancementProgress deserialize(final JsonElement json, final Type type, final JsonDeserializationContext deserializationContext) throws JsonParseException {
++            final AdvancementProgress adv_progress = new AdvancementProgress();
++            final JsonObject advancement_json = GsonHelper.convertToJsonObject(json, "advancement");
++            final JsonObject crite_json = GsonHelper.getAsJsonObject(advancement_json, "criteria", new JsonObject());
++
++            for (final Entry<String, JsonElement> entry : crite_json.entrySet()) {
++                final String crite = entry.getKey();
++                final CriterionProgress crite_progress = CriterionProgress.fromJson(GsonHelper.convertToString(entry.getValue(), crite));
+ 
+-            for(Entry<String, JsonElement> entry : jsonobject1.entrySet()) {
+-                String s = entry.getKey();
+-                advancementprogress.criteria.put(s, CriterionProgress.fromJson(GsonHelper.convertToString((JsonElement)entry.getValue(), s)));
++                adv_progress.criteria.put(crite, crite_progress);
+             }
+ 
+-            return advancementprogress;
++            return adv_progress;
+         }
+     }
+ }
+diff --git a/src/main/java/net/minecraft/advancements/AdvancementRewards.java b/src/main/java/net/minecraft/advancements/AdvancementRewards.java
+index b8c9c923112396c6204e86663f70f55e55992e54..6e9133855d4b20cb2b49c57fc36522e75933f9c6 100644
+--- a/src/main/java/net/minecraft/advancements/AdvancementRewards.java
++++ b/src/main/java/net/minecraft/advancements/AdvancementRewards.java
+@@ -1,14 +1,7 @@
+ package net.minecraft.advancements;
+ 
+ import com.google.common.collect.Lists;
+-import com.google.gson.JsonArray;
+-import com.google.gson.JsonElement;
+-import com.google.gson.JsonNull;
+-import com.google.gson.JsonObject;
+-import com.google.gson.JsonParseException;
+-import java.util.Arrays;
+-import java.util.List;
+-import javax.annotation.Nullable;
++import com.google.gson.*;
+ import net.minecraft.commands.CommandFunction;
+ import net.minecraft.resources.ResourceLocation;
+ import net.minecraft.server.MinecraftServer;
+@@ -22,181 +15,153 @@ import net.minecraft.world.level.storage.loot.LootContext;
+ import net.minecraft.world.level.storage.loot.parameters.LootContextParamSets;
+ import net.minecraft.world.level.storage.loot.parameters.LootContextParams;
+ 
++import java.util.Arrays;
++import java.util.List;
++
+ public class AdvancementRewards {
+-    public static final AdvancementRewards EMPTY = new AdvancementRewards(
+-        0, new ResourceLocation[0], new ResourceLocation[0], CommandFunction.CacheableFunction.NONE
+-    );
+-    private final int experience;
++    public static final AdvancementRewards EMPTY = new AdvancementRewards
++            (0, new ResourceLocation[0], new ResourceLocation[0], CommandFunction.CacheableFunction.NONE);
++    private final int exp;
+     private final ResourceLocation[] loot;
+     private final ResourceLocation[] recipes;
+     private final CommandFunction.CacheableFunction function;
+ 
+-    public AdvancementRewards(int debug1, ResourceLocation[] debug2, ResourceLocation[] debug3, CommandFunction.CacheableFunction debug4) {
+-        this.experience = debug1;
+-        this.loot = debug2;
+-        this.recipes = debug3;
+-        this.function = debug4;
++    public AdvancementRewards(final int exp, final ResourceLocation[] loot, final ResourceLocation[] recipes, final CommandFunction.CacheableFunction func) {
++        this.exp = exp;
++        this.loot = loot;
++        this.recipes = recipes;
++        this.function = func;
++    }
++
++    private static ResourceLocation[] recipeOrLoot(final JsonObject json, final String recipesOrLoot) {
++        ResourceLocation[] resourceLocations = null;
++        final JsonArray recipesOrLoot_jsonArray = GsonHelper.getAsJsonArray(json, recipesOrLoot, new JsonArray());
++
++        if (recipesOrLoot_jsonArray != null && recipesOrLoot_jsonArray.size() > 0) {
++            resourceLocations = new ResourceLocation[recipesOrLoot_jsonArray.size()];
++
++            for (int k = 0; k < resourceLocations.length; ++k)
++                resourceLocations[k] = new ResourceLocation(GsonHelper.convertToString(recipesOrLoot_jsonArray.get(k), recipesOrLoot + "[" + k + "]"));
++        }
++
++        return resourceLocations;
++    }
++
++    public static AdvancementRewards deserialize(final JsonObject json) throws JsonParseException {
++        final int exp = GsonHelper.getAsInt(json, "experience", 0);
++        CommandFunction.CacheableFunction func;
++
++        if (json.has("function"))
++            func = new CommandFunction.CacheableFunction(new ResourceLocation(GsonHelper.getAsString(json, "function")));
++        else
++            func = CommandFunction.CacheableFunction.NONE;
++
++        return new AdvancementRewards(exp, recipeOrLoot(json, "loot"), recipeOrLoot(json, "recipes"), func);
+     }
+ 
+-    public void grant(ServerPlayer debug1) {
+-        debug1.giveExperiencePoints(this.experience);
+-        LootContext lootcontext = new LootContext.Builder(debug1.getLevel())
+-            .withParameter(LootContextParams.THIS_ENTITY, debug1)
+-            .withParameter(LootContextParams.ORIGIN, debug1.position())
+-            .withRandom(debug1.getRandom())
+-            .create(LootContextParamSets.ADVANCEMENT_REWARD);
+-        boolean flag = false;
+-
+-        for(ResourceLocation resourcelocation : this.loot) {
+-            for(ItemStack itemstack : debug1.server.getLootTables().get(resourcelocation).getRandomItems(lootcontext)) {
+-                if (debug1.addItem(itemstack)) {
+-                    debug1.level
+-                        .playSound(
+-                            null,
+-                            debug1.getX(),
+-                            debug1.getY(),
+-                            debug1.getZ(),
+-                            SoundEvents.ITEM_PICKUP,
+-                            SoundSource.PLAYERS,
+-                            0.2F,
+-                            ((debug1.getRandom().nextFloat() - debug1.getRandom().nextFloat()) * 0.7F + 1.0F) * 2.0F
+-                        );
+-                    flag = true;
++    public void grant(final ServerPlayer player) {
++        player.giveExperiencePoints(this.exp);
++        final LootContext lootContext = new LootContext.Builder(player.getLevel())
++                .withParameter(LootContextParams.THIS_ENTITY, player)
++                .withParameter(LootContextParams.ORIGIN, player.position())
++                .withRandom(player.getRandom())
++                .create(LootContextParamSets.ADVANCEMENT_REWARD);
++        boolean isInventoryChanged = false;
++
++        for (final ResourceLocation loot : this.loot) {
++            for (final ItemStack item : player.server.getLootTables().get(loot).getRandomItems(lootContext)) {
++                if (player.addItem(item)) {
++                    player.level.playSound(null, player.getX(), player.getY(), player.getZ(),
++                            SoundEvents.ITEM_PICKUP, SoundSource.PLAYERS, 0.2F,
++                            ((player.getRandom().nextFloat() - player.getRandom().nextFloat()) * 0.7F + 1.0F) * 2.0F);
++                    isInventoryChanged = true;
+                 } else {
+-                    ItemEntity itementity = debug1.drop(itemstack, false);
+-                    if (itementity != null) {
+-                        itementity.setNoPickUpDelay();
+-                        itementity.setOwner(debug1.getUUID());
++                    final ItemEntity itemEntity = player.drop(item, false);
++                    if (itemEntity != null) {
++                        itemEntity.setNoPickUpDelay();
++                        itemEntity.setOwner(player.getUUID());
+                     }
+                 }
+             }
+         }
+ 
+-        if (flag) {
+-            debug1.inventoryMenu.broadcastChanges();
+-        }
+ 
+-        if (this.recipes.length > 0) {
+-            debug1.awardRecipesByKey(this.recipes);
+-        }
++        if (isInventoryChanged) player.inventoryMenu.broadcastChanges();
+ 
+-        MinecraftServer minecraftserver = debug1.server;
+-        this.function
+-            .get(minecraftserver.getFunctions())
+-            .ifPresent(debug2x -> minecraftserver.getFunctions().execute(debug2x, debug1.createCommandSourceStack().withSuppressedOutput().withPermission(2)));
++        if (this.recipes.length > 0)
++            player.awardRecipesByKey(this.recipes);
++
++        final MinecraftServer server = player.server;
++        this.function.get(server.getFunctions()).ifPresent
++                (func -> server.getFunctions().execute(func, player.createCommandSourceStack().withSuppressedOutput().withPermission(2)));
+     }
+ 
+     @Override
+     public String toString() {
+         return "AdvancementRewards{experience="
+-            + this.experience
+-            + ", loot="
+-            + Arrays.toString((Object[])this.loot)
+-            + ", recipes="
+-            + Arrays.toString((Object[])this.recipes)
+-            + ", function="
+-            + this.function
+-            + '}';
++                + this.exp
++                + ", loot="
++                + Arrays.toString(this.loot)
++                + ", recipes="
++                + Arrays.toString(this.recipes)
++                + ", function="
++                + this.function
++                + '}';
+     }
+ 
+     public JsonElement serializeToJson() {
+-        if (this == EMPTY) {
++        if (this == EMPTY)
+             return JsonNull.INSTANCE;
+-        } else {
+-            JsonObject jsonobject = new JsonObject();
+-            if (this.experience != 0) {
+-                jsonobject.addProperty("experience", this.experience);
+-            }
+ 
+-            if (this.loot.length > 0) {
+-                JsonArray jsonarray = new JsonArray();
++        final JsonObject json = new JsonObject();
++        if (this.exp != 0) json.addProperty("experience", this.exp);
+ 
+-                for(ResourceLocation resourcelocation : this.loot) {
+-                    jsonarray.add(resourcelocation.toString());
+-                }
+-
+-                jsonobject.add("loot", jsonarray);
+-            }
+-
+-            if (this.recipes.length > 0) {
+-                JsonArray jsonarray1 = new JsonArray();
+-
+-                for(ResourceLocation resourcelocation1 : this.recipes) {
+-                    jsonarray1.add(resourcelocation1.toString());
+-                }
+-
+-                jsonobject.add("recipes", jsonarray1);
+-            }
+-
+-            if (this.function.getId() != null) {
+-                jsonobject.addProperty("function", this.function.getId().toString());
+-            }
++        if (this.loot.length > 0) {
++            final JsonArray loot_jsonArray = new JsonArray();
++            for (final ResourceLocation loot : this.loot)
++                loot_jsonArray.add(loot.toString());
+ 
+-            return jsonobject;
++            json.add("loot", loot_jsonArray);
+         }
+-    }
+-
+-    public static AdvancementRewards deserialize(JsonObject debug0) throws JsonParseException {
+-        int i = GsonHelper.getAsInt(debug0, "experience", 0);
+-        JsonArray jsonarray = GsonHelper.getAsJsonArray(debug0, "loot", new JsonArray());
+-        ResourceLocation[] aresourcelocation = new ResourceLocation[jsonarray.size()];
+ 
+-        for(int j = 0; j < aresourcelocation.length; ++j) {
+-            aresourcelocation[j] = new ResourceLocation(GsonHelper.convertToString(jsonarray.get(j), "loot[" + j + "]"));
+-        }
+-
+-        JsonArray jsonarray1 = GsonHelper.getAsJsonArray(debug0, "recipes", new JsonArray());
+-        ResourceLocation[] aresourcelocation1 = new ResourceLocation[jsonarray1.size()];
++        if (this.recipes.length > 0) {
++            final JsonArray recipes_jsonArray = new JsonArray();
++            for (final ResourceLocation recipe : this.recipes)
++                recipes_jsonArray.add(recipe.toString());
+ 
+-        for(int k = 0; k < aresourcelocation1.length; ++k) {
+-            aresourcelocation1[k] = new ResourceLocation(GsonHelper.convertToString(jsonarray1.get(k), "recipes[" + k + "]"));
++            json.add("recipes", recipes_jsonArray);
+         }
+ 
+-        CommandFunction.CacheableFunction commandfunction$cacheablefunction;
+-        if (debug0.has("function")) {
+-            commandfunction$cacheablefunction = new CommandFunction.CacheableFunction(new ResourceLocation(GsonHelper.getAsString(debug0, "function")));
+-        } else {
+-            commandfunction$cacheablefunction = CommandFunction.CacheableFunction.NONE;
+-        }
++        if (this.function.getId() != null)
++            json.addProperty("function", this.function.getId().toString());
+ 
+-        return new AdvancementRewards(i, aresourcelocation, aresourcelocation1, commandfunction$cacheablefunction);
++        return json;
+     }
+ 
+     public static class Builder {
+-        private int experience;
+-        private final List<ResourceLocation> loot = Lists.newArrayList();
+         private final List<ResourceLocation> recipes = Lists.newArrayList();
+-        @Nullable
+-        private ResourceLocation function;
++        private int experience;
+ 
+-        public Builder() {
++        public static AdvancementRewards.Builder experience(final int exp) {
++            return new AdvancementRewards.Builder().addExperience(exp);
+         }
+ 
+-        public static AdvancementRewards.Builder experience(int debug0) {
+-            return new AdvancementRewards.Builder().addExperience(debug0);
++        public static AdvancementRewards.Builder recipe(final ResourceLocation recipe) {
++            return new AdvancementRewards.Builder().addRecipe(recipe);
+         }
+ 
+-        public AdvancementRewards.Builder addExperience(int debug1) {
+-            this.experience += debug1;
++        public AdvancementRewards.Builder addExperience(final int exp) {
++            this.experience += exp;
+             return this;
+         }
+ 
+-        public static AdvancementRewards.Builder recipe(ResourceLocation debug0) {
+-            return new AdvancementRewards.Builder().addRecipe(debug0);
+-        }
+-
+-        public AdvancementRewards.Builder addRecipe(ResourceLocation debug1) {
+-            this.recipes.add(debug1);
++        public AdvancementRewards.Builder addRecipe(final ResourceLocation recipe) {
++            this.recipes.add(recipe);
+             return this;
+         }
+ 
+         public AdvancementRewards build() {
+-            return new AdvancementRewards(
+-                this.experience,
+-                this.loot.toArray(new ResourceLocation[0]),
+-                this.recipes.toArray(new ResourceLocation[0]),
+-                this.function == null ? CommandFunction.CacheableFunction.NONE : new CommandFunction.CacheableFunction(this.function)
+-            );
++            return new AdvancementRewards(this.experience, null, this.recipes.toArray(new ResourceLocation[0]), CommandFunction.CacheableFunction.NONE);
+         }
+     }
+ }
+diff --git a/src/main/java/net/minecraft/advancements/CriteriaTriggers.java b/src/main/java/net/minecraft/advancements/CriteriaTriggers.java
+index 297f0604768a3534f3efab6a9e7946138136d1df..b982d521d85a0ff7614f2e5620b570b0b9e2696e 100644
+--- a/src/main/java/net/minecraft/advancements/CriteriaTriggers.java
++++ b/src/main/java/net/minecraft/advancements/CriteriaTriggers.java
+@@ -1,51 +1,14 @@
+ package net.minecraft.advancements;
+ 
+ import com.google.common.collect.Maps;
+-import java.util.Map;
+-import javax.annotation.Nullable;
+-import net.minecraft.advancements.critereon.BeeNestDestroyedTrigger;
+-import net.minecraft.advancements.critereon.BredAnimalsTrigger;
+-import net.minecraft.advancements.critereon.BrewedPotionTrigger;
+-import net.minecraft.advancements.critereon.ChangeDimensionTrigger;
+-import net.minecraft.advancements.critereon.ChanneledLightningTrigger;
+-import net.minecraft.advancements.critereon.ConstructBeaconTrigger;
+-import net.minecraft.advancements.critereon.ConsumeItemTrigger;
+-import net.minecraft.advancements.critereon.CuredZombieVillagerTrigger;
+-import net.minecraft.advancements.critereon.EffectsChangedTrigger;
+-import net.minecraft.advancements.critereon.EnchantedItemTrigger;
+-import net.minecraft.advancements.critereon.EnterBlockTrigger;
+-import net.minecraft.advancements.critereon.EntityHurtPlayerTrigger;
+-import net.minecraft.advancements.critereon.FilledBucketTrigger;
+-import net.minecraft.advancements.critereon.FishingRodHookedTrigger;
+-import net.minecraft.advancements.critereon.ImpossibleTrigger;
+-import net.minecraft.advancements.critereon.InventoryChangeTrigger;
+-import net.minecraft.advancements.critereon.ItemDurabilityTrigger;
+-import net.minecraft.advancements.critereon.ItemPickedUpByEntityTrigger;
+-import net.minecraft.advancements.critereon.ItemUsedOnBlockTrigger;
+-import net.minecraft.advancements.critereon.KilledByCrossbowTrigger;
+-import net.minecraft.advancements.critereon.KilledTrigger;
+-import net.minecraft.advancements.critereon.LevitationTrigger;
+-import net.minecraft.advancements.critereon.LocationTrigger;
+-import net.minecraft.advancements.critereon.LootTableTrigger;
+-import net.minecraft.advancements.critereon.NetherTravelTrigger;
+-import net.minecraft.advancements.critereon.PlacedBlockTrigger;
+-import net.minecraft.advancements.critereon.PlayerHurtEntityTrigger;
+-import net.minecraft.advancements.critereon.PlayerInteractTrigger;
+-import net.minecraft.advancements.critereon.RecipeUnlockedTrigger;
+-import net.minecraft.advancements.critereon.ShotCrossbowTrigger;
+-import net.minecraft.advancements.critereon.SlideDownBlockTrigger;
+-import net.minecraft.advancements.critereon.SummonedEntityTrigger;
+-import net.minecraft.advancements.critereon.TameAnimalTrigger;
+-import net.minecraft.advancements.critereon.TargetBlockTrigger;
+-import net.minecraft.advancements.critereon.TickTrigger;
+-import net.minecraft.advancements.critereon.TradeTrigger;
+-import net.minecraft.advancements.critereon.UsedEnderEyeTrigger;
+-import net.minecraft.advancements.critereon.UsedTotemTrigger;
++import net.minecraft.advancements.critereon.*;
+ import net.minecraft.resources.ResourceLocation;
+ 
++import javax.annotation.Nullable;
++import java.util.Map;
++
+ public class CriteriaTriggers {
+-    private static final Map<ResourceLocation, CriterionTrigger<?>> CRITERIA = Maps.newHashMap();
+-    public static final ImpossibleTrigger IMPOSSIBLE = register(new ImpossibleTrigger());
++    private static final Map<ResourceLocation, CriterionTrigger<?>> TRIGGERS = Maps.newHashMap();
+     public static final KilledTrigger PLAYER_KILLED_ENTITY = register(new KilledTrigger(new ResourceLocation("player_killed_entity")));
+     public static final KilledTrigger ENTITY_KILLED_PLAYER = register(new KilledTrigger(new ResourceLocation("entity_killed_player")));
+     public static final EnterBlockTrigger ENTER_BLOCK = register(new EnterBlockTrigger());
+@@ -88,21 +51,19 @@ public class CriteriaTriggers {
+     public static final ItemPickedUpByEntityTrigger ITEM_PICKED_UP_BY_ENTITY = register(new ItemPickedUpByEntityTrigger());
+     public static final PlayerInteractTrigger PLAYER_INTERACTED_WITH_ENTITY = register(new PlayerInteractTrigger());
+ 
+-    private static <T extends CriterionTrigger<?>> T register(T debug0) {
+-        if (CRITERIA.containsKey(debug0.getId())) {
+-            throw new IllegalArgumentException("Duplicate criterion id " + debug0.getId());
+-        } else {
+-            CRITERIA.put(debug0.getId(), debug0);
+-            return debug0;
+-        }
++    private static <T extends CriterionTrigger<?>> T register(T trigger) {
++        if (TRIGGERS.containsKey(trigger.getId()))
++            throw new IllegalArgumentException("Duplicate criterion id " + trigger.getId());
++        TRIGGERS.put(trigger.getId(), trigger);
++        return trigger;
+     }
+ 
+     @Nullable
+-    public static <T extends CriterionTriggerInstance> CriterionTrigger<T> getCriterion(ResourceLocation debug0) {
+-        return (CriterionTrigger<T>)CRITERIA.get(debug0);
++    public static <T extends CriterionTriggerInstance> CriterionTrigger<T> getTrigger(ResourceLocation triggerID) {
++        return (CriterionTrigger<T>) TRIGGERS.get(triggerID);
+     }
+ 
+     public static Iterable<? extends CriterionTrigger<?>> all() {
+-        return CRITERIA.values();
++        return TRIGGERS.values();
+     }
+ }
+diff --git a/src/main/java/net/minecraft/advancements/Criterion.java b/src/main/java/net/minecraft/advancements/Criterion.java
+index 29386eb9c6c711f67b3db257f755824e8a807097..49b923deed31c4c66fe403522409a7c22b4e5122 100644
+--- a/src/main/java/net/minecraft/advancements/Criterion.java
++++ b/src/main/java/net/minecraft/advancements/Criterion.java
+@@ -4,89 +4,75 @@ import com.google.common.collect.Maps;
+ import com.google.gson.JsonElement;
+ import com.google.gson.JsonObject;
+ import com.google.gson.JsonSyntaxException;
+-import java.util.Map;
+-import java.util.Map.Entry;
+-import javax.annotation.Nullable;
+ import net.minecraft.advancements.critereon.DeserializationContext;
+ import net.minecraft.advancements.critereon.SerializationContext;
+ import net.minecraft.network.FriendlyByteBuf;
+ import net.minecraft.resources.ResourceLocation;
+ import net.minecraft.util.GsonHelper;
+ 
++import javax.annotation.Nullable;
++import java.util.Map;
++import java.util.Map.Entry;
++
+ public class Criterion {
+-    private final CriterionTriggerInstance trigger;
++    private final CriterionTriggerInstance trigger_conditions;
+ 
+-    public Criterion(CriterionTriggerInstance debug1) {
+-        this.trigger = debug1;
++    public Criterion(final CriterionTriggerInstance conditions) {
++        this.trigger_conditions = conditions;
+     }
+ 
+     public Criterion() {
+-        this.trigger = null;
++        this.trigger_conditions = null;
+     }
+ 
+-    public void serializeToNetwork(FriendlyByteBuf debug1) {
+-    }
++    public static Criterion criterionFromJson(final JsonObject json, final DeserializationContext deserializationContext) {
++        final ResourceLocation triggerID = new ResourceLocation(GsonHelper.getAsString(json, "trigger"));
++        final CriterionTrigger<?> trigger = CriteriaTriggers.getTrigger(triggerID);
+ 
+-    public static Criterion criterionFromJson(JsonObject debug0, DeserializationContext debug1) {
+-        ResourceLocation resourcelocation = new ResourceLocation(GsonHelper.getAsString(debug0, "trigger"));
+-        CriterionTrigger<?> criteriontrigger = CriteriaTriggers.getCriterion(resourcelocation);
+-        if (criteriontrigger == null) {
+-            throw new JsonSyntaxException("Invalid criterion trigger: " + resourcelocation);
+-        } else {
+-            CriterionTriggerInstance criteriontriggerinstance = criteriontrigger.createInstance(
+-                GsonHelper.getAsJsonObject(debug0, "conditions", new JsonObject()), debug1
+-            );
+-            return new Criterion(criteriontriggerinstance);
+-        }
+-    }
++        if (trigger == null)
++            throw new JsonSyntaxException("Invalid criterion trigger: " + triggerID);
+ 
+-    public static Criterion criterionFromNetwork(FriendlyByteBuf debug0) {
+-        return new Criterion();
++        final CriterionTriggerInstance conditions = trigger.createInstance
++                (GsonHelper.getAsJsonObject(json, "conditions", new JsonObject()), deserializationContext);
++        return new Criterion(conditions);
+     }
+ 
+-    public static Map<String, Criterion> criteriaFromJson(JsonObject debug0, DeserializationContext debug1) {
+-        Map<String, Criterion> map = Maps.newHashMap();
++    public static Map<String, Criterion> criteriaFromJson(final JsonObject json, final DeserializationContext deserializationContext) {
++        Map<String, Criterion> criteria = Maps.newHashMap();
+ 
+-        for(Entry<String, JsonElement> entry : debug0.entrySet()) {
+-            map.put(entry.getKey(), criterionFromJson(GsonHelper.convertToJsonObject((JsonElement)entry.getValue(), "criterion"), debug1));
+-        }
++        for (final Entry<String, JsonElement> entry : json.entrySet())
++            criteria.put(entry.getKey(), criterionFromJson(GsonHelper.convertToJsonObject(entry.getValue(), "criterion"), deserializationContext));
+ 
+-        return map;
++        return criteria;
+     }
+ 
+-    public static Map<String, Criterion> criteriaFromNetwork(FriendlyByteBuf debug0) {
+-        Map<String, Criterion> map = Maps.newHashMap();
+-        int i = debug0.readVarInt();
++    public static Map<String, Criterion> criteriaFromNetwork(final FriendlyByteBuf byteBuf) {
++        final Map<String, Criterion> criteria = Maps.newHashMap();
++        for (int j = 0; j < byteBuf.readVarInt(); ++j)
++            criteria.put(byteBuf.readUtf(32767), new Criterion());
+ 
+-        for(int j = 0; j < i; ++j) {
+-            map.put(debug0.readUtf(32767), criterionFromNetwork(debug0));
+-        }
+-
+-        return map;
++        return criteria;
+     }
+ 
+-    public static void serializeToNetwork(Map<String, Criterion> debug0, FriendlyByteBuf debug1) {
+-        debug1.writeVarInt(debug0.size());
++    public static void serializeToNetwork(final Map<String, Criterion> criteria, final FriendlyByteBuf byteBuf) {
++        byteBuf.writeVarInt(criteria.size());
+ 
+-        for(Entry<String, Criterion> entry : debug0.entrySet()) {
+-            debug1.writeUtf(entry.getKey());
+-            entry.getValue().serializeToNetwork(debug1);
+-        }
++        for (final Entry<String, Criterion> entry : criteria.entrySet())
++            byteBuf.writeUtf(entry.getKey());
+     }
+ 
+     @Nullable
+     public CriterionTriggerInstance getTrigger() {
+-        return this.trigger;
++        return this.trigger_conditions;
+     }
+ 
+     public JsonElement serializeToJson() {
+-        JsonObject jsonobject = new JsonObject();
+-        jsonobject.addProperty("trigger", this.trigger.getCriterion().toString());
+-        JsonObject jsonobject1 = this.trigger.serializeToJson(SerializationContext.INSTANCE);
+-        if (jsonobject1.size() != 0) {
+-            jsonobject.add("conditions", jsonobject1);
+-        }
+-
+-        return jsonobject;
++        final JsonObject json = new JsonObject();
++        final JsonObject conditions = this.trigger_conditions.serializeToJson(SerializationContext.INSTANCE);
++        json.addProperty("trigger", this.trigger_conditions.getCriterion().toString());
++        if (conditions.size() != 0)
++            json.add("conditions", conditions);
++
++        return json;
+     }
+ }
+diff --git a/src/main/java/net/minecraft/advancements/CriterionProgress.java b/src/main/java/net/minecraft/advancements/CriterionProgress.java
+index 4786e4e5db93f8c031d13ba182e7cd0ebbae50e5..2b32a3c2e2d1abc536cfc4eb6a799869839d9a27 100644
+--- a/src/main/java/net/minecraft/advancements/CriterionProgress.java
++++ b/src/main/java/net/minecraft/advancements/CriterionProgress.java
+@@ -4,16 +4,33 @@ import com.google.gson.JsonElement;
+ import com.google.gson.JsonNull;
+ import com.google.gson.JsonPrimitive;
+ import com.google.gson.JsonSyntaxException;
++import net.minecraft.network.FriendlyByteBuf;
++
+ import java.text.ParseException;
+ import java.text.SimpleDateFormat;
+ import java.util.Date;
+-import net.minecraft.network.FriendlyByteBuf;
+ 
+ public class CriterionProgress {
+     private static final SimpleDateFormat DATE_FORMAT = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss Z");
+     private Date obtained;
+ 
+-    public CriterionProgress() {
++    public static CriterionProgress fromNetwork(final FriendlyByteBuf byteBuf) {
++        final CriterionProgress crite_progress = new CriterionProgress();
++        if (byteBuf.readBoolean())
++            crite_progress.obtained = byteBuf.readDate();
++
++        return crite_progress;
++    }
++
++    public static CriterionProgress fromJson(final String date_json) {
++        final CriterionProgress crite_progress = new CriterionProgress();
++
++        try {
++            crite_progress.obtained = DATE_FORMAT.parse(date_json);
++            return crite_progress;
++        } catch (final ParseException exception) {
++            throw new JsonSyntaxException("Invalid datetime: " + date_json, exception);
++        }
+     }
+ 
+     public boolean isDone() {
+@@ -37,34 +54,13 @@ public class CriterionProgress {
+         return "CriterionProgress{obtained=" + (this.obtained == null ? "false" : this.obtained) + '}';
+     }
+ 
+-    public void serializeToNetwork(FriendlyByteBuf debug1) {
+-        debug1.writeBoolean(this.obtained != null);
+-        if (this.obtained != null) {
+-            debug1.writeDate(this.obtained);
+-        }
++    public void serializeToNetwork(final FriendlyByteBuf byteBuf) {
++        byteBuf.writeBoolean(this.obtained != null);
++        if (this.obtained != null)
++            byteBuf.writeDate(this.obtained);
+     }
+ 
+     public JsonElement serializeToJson() {
+-        return (JsonElement)(this.obtained != null ? new JsonPrimitive(DATE_FORMAT.format(this.obtained)) : JsonNull.INSTANCE);
+-    }
+-
+-    public static CriterionProgress fromNetwork(FriendlyByteBuf debug0) {
+-        CriterionProgress criterionprogress = new CriterionProgress();
+-        if (debug0.readBoolean()) {
+-            criterionprogress.obtained = debug0.readDate();
+-        }
+-
+-        return criterionprogress;
+-    }
+-
+-    public static CriterionProgress fromJson(String debug0) {
+-        CriterionProgress criterionprogress = new CriterionProgress();
+-
+-        try {
+-            criterionprogress.obtained = DATE_FORMAT.parse(debug0);
+-            return criterionprogress;
+-        } catch (ParseException parseexception) {
+-            throw new JsonSyntaxException("Invalid datetime: " + debug0, parseexception);
+-        }
++        return this.obtained != null ? new JsonPrimitive(DATE_FORMAT.format(this.obtained)) : JsonNull.INSTANCE;
+     }
+ }
+diff --git a/src/main/java/net/minecraft/advancements/CriterionTrigger.java b/src/main/java/net/minecraft/advancements/CriterionTrigger.java
+index 1a2268e4c1eb9de356fde9ad04428a933df4ec7a..3d8d0e420440a4b7cd286dc6b6206df8fadc6bc1 100644
+--- a/src/main/java/net/minecraft/advancements/CriterionTrigger.java
++++ b/src/main/java/net/minecraft/advancements/CriterionTrigger.java
+@@ -8,47 +8,41 @@ import net.minecraft.server.PlayerAdvancements;
+ public interface CriterionTrigger<T extends CriterionTriggerInstance> {
+     ResourceLocation getId();
+ 
+-    void addPlayerListener(PlayerAdvancements var1, CriterionTrigger.Listener<T> var2);
++    void addPlayerListener(final PlayerAdvancements player_advm, final CriterionTrigger.Listener<T> crite_listener);
+ 
+-    void removePlayerListener(PlayerAdvancements var1, CriterionTrigger.Listener<T> var2);
++    void removePlayerListener(final PlayerAdvancements player_advm, final CriterionTrigger.Listener<T> crite_listener);
+ 
+-    void removePlayerListeners(PlayerAdvancements var1);
++    void removePlayerListeners(final PlayerAdvancements var1);
+ 
+-    T createInstance(JsonObject var1, DeserializationContext var2);
++    T createInstance(final JsonObject json, final DeserializationContext deserializationContext);
+ 
+-    public static class Listener<T extends CriterionTriggerInstance> {
++    class Listener<T extends CriterionTriggerInstance> {
+         private final T trigger;
+         private final Advancement advancement;
+         private final String criterion;
+ 
+-        public Listener(T debug1, Advancement debug2, String debug3) {
+-            this.trigger = debug1;
+-            this.advancement = debug2;
+-            this.criterion = debug3;
++        public Listener(final T trigger, final Advancement advancement, final String crite) {
++            this.trigger = trigger;
++            this.advancement = advancement;
++            this.criterion = crite;
+         }
+ 
+         public T getTriggerInstance() {
+             return this.trigger;
+         }
+ 
+-        public void run(PlayerAdvancements debug1) {
+-            debug1.award(this.advancement, this.criterion);
++        public void run(final PlayerAdvancements player_advm) {
++            player_advm.award(this.advancement, this.criterion);
+         }
+ 
+         @Override
+-        public boolean equals(Object debug1) {
+-            if (this == debug1) {
+-                return true;
+-            } else if (debug1 != null && this.getClass() == debug1.getClass()) {
+-                CriterionTrigger.Listener<?> listener = (CriterionTrigger.Listener)debug1;
+-                if (!this.trigger.equals(listener.trigger)) {
+-                    return false;
+-                } else {
+-                    return !this.advancement.equals(listener.advancement) ? false : this.criterion.equals(listener.criterion);
+-                }
+-            } else {
+-                return false;
+-            }
++        public boolean equals(final Object obj) {
++            if (this == obj) return true;
++            if (obj instanceof final CriterionTrigger.Listener<?> listener)
++                return this.trigger.equals(listener.trigger)
++                        && this.advancement.equals(listener.advancement)
++                        && this.criterion.equals(listener.criterion);
++            return false;
+         }
+ 
+         @Override
+diff --git a/src/main/java/net/minecraft/advancements/CriterionTriggerInstance.java b/src/main/java/net/minecraft/advancements/CriterionTriggerInstance.java
+index b92b21ae59b8f73756ae6dd17d49c6fd98cad509..5aad04f6792e5723391fd93370e3161378f803ff 100644
+--- a/src/main/java/net/minecraft/advancements/CriterionTriggerInstance.java
++++ b/src/main/java/net/minecraft/advancements/CriterionTriggerInstance.java
+@@ -7,5 +7,5 @@ import net.minecraft.resources.ResourceLocation;
+ public interface CriterionTriggerInstance {
+     ResourceLocation getCriterion();
+ 
+-    JsonObject serializeToJson(SerializationContext var1);
++    JsonObject serializeToJson(final SerializationContext serializationContext);
+ }
+diff --git a/src/main/java/net/minecraft/advancements/DisplayInfo.java b/src/main/java/net/minecraft/advancements/DisplayInfo.java
+index 7dde85292e43e88d36c861718a121abaea6d7865..cf8b720af0ab4fc950282371001abf25d5953dc3 100644
+--- a/src/main/java/net/minecraft/advancements/DisplayInfo.java
++++ b/src/main/java/net/minecraft/advancements/DisplayInfo.java
+@@ -5,7 +5,6 @@ import com.google.gson.JsonObject;
+ import com.google.gson.JsonParseException;
+ import com.google.gson.JsonSyntaxException;
+ import com.mojang.brigadier.exceptions.CommandSyntaxException;
+-import javax.annotation.Nullable;
+ import net.minecraft.core.Registry;
+ import net.minecraft.nbt.CompoundTag;
+ import net.minecraft.nbt.TagParser;
+@@ -13,9 +12,10 @@ import net.minecraft.network.FriendlyByteBuf;
+ import net.minecraft.network.chat.Component;
+ import net.minecraft.resources.ResourceLocation;
+ import net.minecraft.util.GsonHelper;
+-import net.minecraft.world.item.Item;
+ import net.minecraft.world.item.ItemStack;
+ 
++import javax.annotation.Nullable;
++
+ public class DisplayInfo {
+     private final Component title;
+     private final Component description;
+@@ -24,33 +24,82 @@ public class DisplayInfo {
+     private final FrameType frame;
+     private final boolean showToast;
+     private final boolean announceChat;
+-    private final boolean hidden;
++    private final boolean isHidden;
+     private float x;
+     private float y;
+ 
+-    public DisplayInfo(
+-        ItemStack debug1,
+-        Component debug2,
+-        Component debug3,
+-        @Nullable ResourceLocation debug4,
+-        FrameType debug5,
+-        boolean debug6,
+-        boolean debug7,
+-        boolean debug8
+-    ) {
+-        this.title = debug2;
+-        this.description = debug3;
+-        this.icon = debug1;
+-        this.background = debug4;
+-        this.frame = debug5;
+-        this.showToast = debug6;
+-        this.announceChat = debug7;
+-        this.hidden = debug8;
++    public DisplayInfo(final ItemStack icon,
++                       final Component title,
++                       final Component description,
++                       final @Nullable ResourceLocation background,
++                       final FrameType frame,
++                       final boolean showToast,
++                       final boolean announceChat,
++                       final boolean isHidden) {
++        this.icon = icon;
++        this.title = title;
++        this.description = description;
++        this.background = background;
++        this.frame = frame;
++        this.showToast = showToast;
++        this.announceChat = announceChat;
++        this.isHidden = isHidden;
++    }
++
++    public static DisplayInfo fromJson(final JsonObject json) {
++        final Component title = Component.Serializer.fromJson(json.get("title"));
++        final Component description = Component.Serializer.fromJson(json.get("description"));
++        if (title == null && description == null)
++            throw new JsonSyntaxException("Both title and description must be set");
++
++        final ItemStack icon = getIcon(GsonHelper.getAsJsonObject(json, "icon"));
++        final ResourceLocation background = json.has("background") ? new ResourceLocation(GsonHelper.getAsString(json, "background")) : null;
++        final FrameType frametype = json.has("frame") ? FrameType.byName(GsonHelper.getAsString(json, "frame")) : FrameType.TASK;
++        final boolean showToast = GsonHelper.getAsBoolean(json, "show_toast", true);
++        final boolean announceChat = GsonHelper.getAsBoolean(json, "announce_to_chat", true);
++        final boolean isHidden = GsonHelper.getAsBoolean(json, "hidden", false);
++        return new DisplayInfo(icon, title, description, background, frametype, showToast, announceChat, isHidden);
++    }
++
++    private static ItemStack getIcon(final JsonObject json) {
++        if (!json.has("item"))
++            throw new JsonSyntaxException("Unsupported icon type, currently only items are supported (add 'item' key)");
++        if (json.has("data"))
++            throw new JsonParseException("Disallowed data tag found");
++
++        final ItemStack icon = new ItemStack(GsonHelper.getAsItem(json, "item"));
++        if (json.has("nbt")) {
++            try {
++                final CompoundTag tag = TagParser.parseTag(GsonHelper.convertToString(json.get("nbt"), "nbt"));
++                icon.setTag(tag);
++            } catch (final CommandSyntaxException exception) {
++                throw new JsonSyntaxException("Invalid nbt tag: " + exception.getMessage());
++            }
++        }
++
++        return icon;
+     }
+ 
+-    public void setLocation(float debug1, float debug2) {
+-        this.x = debug1;
+-        this.y = debug2;
++    public static DisplayInfo fromNetwork(final FriendlyByteBuf byteBuf) {
++        final Component title = byteBuf.readComponent();
++        final Component description = byteBuf.readComponent();
++        final ItemStack icon = byteBuf.readItem();
++        final FrameType frame = byteBuf.readEnum(FrameType.class);
++
++        final int i = byteBuf.readInt();
++        final ResourceLocation background = (i & 1) != 0 ? byteBuf.readResourceLocation() : null;
++        final boolean showToast = (i & 2) != 0;
++        final boolean isHidden = (i & 4) != 0;
++
++        final DisplayInfo displayinfo = new DisplayInfo(icon, title, description, background, frame, showToast, false, isHidden);
++        displayinfo.setLocation(byteBuf.readFloat(), byteBuf.readFloat());
++
++        return displayinfo;
++    }
++
++    public void setLocation(final float x, final float y) {
++        this.x = x;
++        this.y = y;
+     }
+ 
+     public Component getTitle() {
+@@ -70,112 +119,45 @@ public class DisplayInfo {
+     }
+ 
+     public boolean isHidden() {
+-        return this.hidden;
++        return this.isHidden;
+     }
+ 
+-    public static DisplayInfo fromJson(JsonObject debug0) {
+-        Component component = Component.Serializer.fromJson(debug0.get("title"));
+-        Component component1 = Component.Serializer.fromJson(debug0.get("description"));
+-        if (component != null && component1 != null) {
+-            ItemStack itemstack = getIcon(GsonHelper.getAsJsonObject(debug0, "icon"));
+-            ResourceLocation resourcelocation = debug0.has("background") ? new ResourceLocation(GsonHelper.getAsString(debug0, "background")) : null;
+-            FrameType frametype = debug0.has("frame") ? FrameType.byName(GsonHelper.getAsString(debug0, "frame")) : FrameType.TASK;
+-            boolean flag = GsonHelper.getAsBoolean(debug0, "show_toast", true);
+-            boolean flag1 = GsonHelper.getAsBoolean(debug0, "announce_to_chat", true);
+-            boolean flag2 = GsonHelper.getAsBoolean(debug0, "hidden", false);
+-            return new DisplayInfo(itemstack, component, component1, resourcelocation, frametype, flag, flag1, flag2);
+-        } else {
+-            throw new JsonSyntaxException("Both title and description must be set");
+-        }
+-    }
+-
+-    private static ItemStack getIcon(JsonObject debug0) {
+-        if (!debug0.has("item")) {
+-            throw new JsonSyntaxException("Unsupported icon type, currently only items are supported (add 'item' key)");
+-        } else {
+-            Item item = GsonHelper.getAsItem(debug0, "item");
+-            if (debug0.has("data")) {
+-                throw new JsonParseException("Disallowed data tag found");
+-            } else {
+-                ItemStack itemstack = new ItemStack(item);
+-                if (debug0.has("nbt")) {
+-                    try {
+-                        CompoundTag compoundtag = TagParser.parseTag(GsonHelper.convertToString(debug0.get("nbt"), "nbt"));
+-                        itemstack.setTag(compoundtag);
+-                    } catch (CommandSyntaxException commandsyntaxexception) {
+-                        throw new JsonSyntaxException("Invalid nbt tag: " + commandsyntaxexception.getMessage());
+-                    }
+-                }
+-
+-                return itemstack;
+-            }
+-        }
+-    }
+-
+-    public void serializeToNetwork(FriendlyByteBuf debug1) {
+-        debug1.writeComponent(this.title);
+-        debug1.writeComponent(this.description);
+-        debug1.writeItem(this.icon);
+-        debug1.writeEnum(this.frame);
++    public void serializeToNetwork(final FriendlyByteBuf byteBuf) {
++        byteBuf.writeComponent(this.title);
++        byteBuf.writeComponent(this.description);
++        byteBuf.writeItem(this.icon);
++        byteBuf.writeEnum(this.frame);
+         int i = 0;
+-        if (this.background != null) {
+-            i |= 1;
+-        }
+-
+-        if (this.showToast) {
+-            i |= 2;
+-        }
+-
+-        if (this.hidden) {
+-            i |= 4;
+-        }
+-
+-        debug1.writeInt(i);
+-        if (this.background != null) {
+-            debug1.writeResourceLocation(this.background);
+-        }
+-
+-        debug1.writeFloat(this.x);
+-        debug1.writeFloat(this.y);
+-    }
+-
+-    public static DisplayInfo fromNetwork(FriendlyByteBuf debug0) {
+-        Component component = debug0.readComponent();
+-        Component component1 = debug0.readComponent();
+-        ItemStack itemstack = debug0.readItem();
+-        FrameType frametype = debug0.readEnum(FrameType.class);
+-        int i = debug0.readInt();
+-        ResourceLocation resourcelocation = (i & 1) != 0 ? debug0.readResourceLocation() : null;
+-        boolean flag = (i & 2) != 0;
+-        boolean flag1 = (i & 4) != 0;
+-        DisplayInfo displayinfo = new DisplayInfo(itemstack, component, component1, resourcelocation, frametype, flag, false, flag1);
+-        displayinfo.setLocation(debug0.readFloat(), debug0.readFloat());
+-        return displayinfo;
++        if (this.background != null) i |= 1;
++        if (this.showToast) i |= 2;
++        if (this.isHidden) i |= 4;
++
++        byteBuf.writeInt(i);
++        if (this.background != null)
++            byteBuf.writeResourceLocation(this.background);
++        byteBuf.writeFloat(this.x);
++        byteBuf.writeFloat(this.y);
+     }
+ 
+     public JsonElement serializeToJson() {
+-        JsonObject jsonobject = new JsonObject();
+-        jsonobject.add("icon", this.serializeIcon());
+-        jsonobject.add("title", Component.Serializer.toJsonTree(this.title));
+-        jsonobject.add("description", Component.Serializer.toJsonTree(this.description));
+-        jsonobject.addProperty("frame", this.frame.getName());
+-        jsonobject.addProperty("show_toast", this.showToast);
+-        jsonobject.addProperty("announce_to_chat", this.announceChat);
+-        jsonobject.addProperty("hidden", this.hidden);
+-        if (this.background != null) {
+-            jsonobject.addProperty("background", this.background.toString());
+-        }
+-
+-        return jsonobject;
++        final JsonObject json = new JsonObject();
++        json.add("icon", this.serializeIcon());
++        json.add("title", Component.Serializer.toJsonTree(this.title));
++        json.add("description", Component.Serializer.toJsonTree(this.description));
++        json.addProperty("frame", this.frame.getName());
++        json.addProperty("show_toast", this.showToast);
++        json.addProperty("announce_to_chat", this.announceChat);
++        json.addProperty("hidden", this.isHidden);
++        if (this.background != null)
++            json.addProperty("background", this.background.toString());
++
++        return json;
+     }
+ 
+     private JsonObject serializeIcon() {
+-        JsonObject jsonobject = new JsonObject();
+-        jsonobject.addProperty("item", Registry.ITEM.getKey(this.icon.getItem()).toString());
+-        if (this.icon.hasTag()) {
+-            jsonobject.addProperty("nbt", this.icon.getTag().toString());
+-        }
+-
+-        return jsonobject;
++        final JsonObject json = new JsonObject();
++        json.addProperty("item", Registry.ITEM.getKey(this.icon.getItem()).toString());
++        if (this.icon.hasTag()) json.addProperty("nbt", this.icon.getTag().toString());
++        return json;
+     }
+ }
+diff --git a/src/main/java/net/minecraft/advancements/FrameType.java b/src/main/java/net/minecraft/advancements/FrameType.java
+index 6655ecff06a82660103c680be0fb63b2604a6b95..810ffba27c13a0f1b4e275ddd02652984ba9952e 100644
+--- a/src/main/java/net/minecraft/advancements/FrameType.java
++++ b/src/main/java/net/minecraft/advancements/FrameType.java
+@@ -1,38 +1,30 @@
+ package net.minecraft.advancements;
+ 
+ import net.minecraft.ChatFormatting;
+-import net.minecraft.network.chat.Component;
+-import net.minecraft.network.chat.TranslatableComponent;
+ 
+ public enum FrameType {
+-    TASK("task", 0, ChatFormatting.GREEN),
+-    CHALLENGE("challenge", 26, ChatFormatting.DARK_PURPLE),
+-    GOAL("goal", 52, ChatFormatting.GREEN);
++    TASK("task", ChatFormatting.GREEN),
++    CHALLENGE("challenge", ChatFormatting.DARK_PURPLE),
++    GOAL("goal", ChatFormatting.GREEN);
+ 
+     private final String name;
+-    private final int texture;
+     private final ChatFormatting chatColor;
+-    private final Component displayName;
+ 
+-    private FrameType(String debug3, int debug4, ChatFormatting debug5) {
+-        this.name = debug3;
+-        this.texture = debug4;
+-        this.chatColor = debug5;
+-        this.displayName = new TranslatableComponent("advancements.toast." + debug3);
++    FrameType(final String name, final ChatFormatting chatColor) {
++        this.name = name;
++        this.chatColor = chatColor;
+     }
+ 
+-    public String getName() {
+-        return this.name;
+-    }
++    public static FrameType byName(final String name) {
++        for (final FrameType frame : values())
++            if (frame.name.equals(name))
++                return frame;
+ 
+-    public static FrameType byName(String debug0) {
+-        for(FrameType frametype : values()) {
+-            if (frametype.name.equals(debug0)) {
+-                return frametype;
+-            }
+-        }
++        throw new IllegalArgumentException("Unknown frame type '" + name + "'");
++    }
+ 
+-        throw new IllegalArgumentException("Unknown frame type '" + debug0 + "'");
++    public String getName() {
++        return this.name;
+     }
+ 
+     public ChatFormatting getChatColor() {
+diff --git a/src/main/java/net/minecraft/advancements/RequirementsStrategy.java b/src/main/java/net/minecraft/advancements/RequirementsStrategy.java
+index 003002698997a7f79ed273a76b86007deaa95e28..68bc4e6ea5571fd1a3a7fb8393cadf300cfd5262 100644
+--- a/src/main/java/net/minecraft/advancements/RequirementsStrategy.java
++++ b/src/main/java/net/minecraft/advancements/RequirementsStrategy.java
+@@ -3,17 +3,16 @@ package net.minecraft.advancements;
+ import java.util.Collection;
+ 
+ public interface RequirementsStrategy {
+-    RequirementsStrategy AND = debug0 -> {
+-        String[][] astring = new String[debug0.size()][];
++    RequirementsStrategy AND = requirements -> {
++        final String[][] requirement = new String[requirements.size()][];
+         int i = 0;
+ 
+-        for(String s : debug0) {
+-            astring[i++] = new String[]{s};
+-        }
++        for (final String s : requirements)
++            requirement[i++] = new String[]{s};
+ 
+-        return astring;
++        return requirement;
+     };
+-    RequirementsStrategy OR = debug0 -> new String[][]{debug0.toArray(new String[0])};
++    RequirementsStrategy OR = requirements -> new String[][]{requirements.toArray(new String[0])};
+ 
+-    String[][] createRequirements(Collection<String> var1);
++    String[][] createRequirements(final Collection<String> requirements);
+ }
+diff --git a/src/main/java/net/minecraft/advancements/TreeNodePosition.java b/src/main/java/net/minecraft/advancements/TreeNodePosition.java
+index 35e987cedb646ff8519aefa5d050cf6ecaffe118..c7d4db6b4672bb924182b1f99234e4b4a8742259 100644
+--- a/src/main/java/net/minecraft/advancements/TreeNodePosition.java
++++ b/src/main/java/net/minecraft/advancements/TreeNodePosition.java
+@@ -1,8 +1,9 @@
+ package net.minecraft.advancements;
+ 
+ import com.google.common.collect.Lists;
+-import java.util.List;
++
+ import javax.annotation.Nullable;
++import java.util.List;
+ 
+ public class TreeNodePosition {
+     private final Advancement advancement;
+@@ -18,37 +19,52 @@ public class TreeNodePosition {
+     private float change;
+     private float shift;
+ 
+-    public TreeNodePosition(Advancement debug1, @Nullable TreeNodePosition debug2, @Nullable TreeNodePosition debug3, int debug4, int debug5) {
+-        if (debug1.getDisplay() == null) {
++    public TreeNodePosition(final Advancement advancement,
++                            final @Nullable TreeNodePosition parent,
++                            final @Nullable TreeNodePosition previousSibling,
++                            final int childIndex,
++                            final int x) {
++        if (advancement.getDisplay() == null)
+             throw new IllegalArgumentException("Can't position an invisible advancement!");
+-        } else {
+-            this.advancement = debug1;
+-            this.parent = debug2;
+-            this.previousSibling = debug3;
+-            this.childIndex = debug4;
+-            this.ancestor = this;
+-            this.x = debug5;
+-            this.y = -1.0F;
+-            TreeNodePosition treenodeposition = null;
+-
+-            for(Advancement advancement : debug1.getChildren()) {
+-                treenodeposition = this.addChild(advancement, treenodeposition);
+-            }
+-        }
++
++        this.advancement = advancement;
++        this.parent = parent;
++        this.previousSibling = previousSibling;
++        this.childIndex = childIndex;
++        this.ancestor = this;
++        this.x = x;
++        this.y = -1.0F;
++
++        TreeNodePosition nodePosition = null;
++        for (final Advancement child : advancement.getChildren())
++            nodePosition = this.addChild(child, nodePosition);
++    }
++
++    public static void run(final Advancement advancement) {
++        if (advancement.getDisplay() == null)
++            throw new IllegalArgumentException("Can't position children of an invisible root!");
++
++        final TreeNodePosition nodePosition = new TreeNodePosition(advancement, null, null, 1, 0);
++        nodePosition.firstWalk();
++        float f = nodePosition.secondWalk(0.0F, 0, nodePosition.y);
++        if (f < 0.0F)
++            nodePosition.thirdWalk(-f);
++
++        nodePosition.finalizePosition();
+     }
+ 
+     @Nullable
+-    private TreeNodePosition addChild(Advancement debug1, @Nullable TreeNodePosition debug2) {
+-        if (debug1.getDisplay() != null) {
+-            debug2 = new TreeNodePosition(debug1, this, debug2, this.children.size() + 1, this.x + 1);
+-            this.children.add(debug2);
++    private TreeNodePosition addChild(final Advancement child, @Nullable TreeNodePosition child_nodePos) {
++        if (child.getDisplay() != null) {
++            child_nodePos = new TreeNodePosition(child, this, child_nodePos, this.children.size() + 1, this.x + 1);
++            this.children.add(child_nodePos);
+         } else {
+-            for(Advancement advancement : debug1.getChildren()) {
+-                debug2 = this.addChild(advancement, debug2);
++            for (final Advancement advancement : child.getChildren()) {
++                child_nodePos = this.addChild(advancement, child_nodePos);
+             }
+         }
+ 
+-        return debug2;
++        return child_nodePos;
+     }
+ 
+     private void firstWalk() {
+@@ -58,44 +74,42 @@ public class TreeNodePosition {
+             } else {
+                 this.y = 0.0F;
+             }
+-        } else {
+-            TreeNodePosition treenodeposition = null;
++            return;
++        }
+ 
+-            for(TreeNodePosition treenodeposition1 : this.children) {
+-                treenodeposition1.firstWalk();
+-                treenodeposition = treenodeposition1.apportion(treenodeposition == null ? treenodeposition1 : treenodeposition);
+-            }
++        TreeNodePosition nodePosition = null;
++        for (TreeNodePosition child_nodePos : this.children) {
++            child_nodePos.firstWalk();
++            nodePosition = child_nodePos.apportion(nodePosition == null ? child_nodePos : nodePosition);
++        }
+ 
+-            this.executeShifts();
+-            float f = (this.children.get(0).y + this.children.get(this.children.size() - 1).y) / 2.0F;
+-            if (this.previousSibling != null) {
+-                this.y = this.previousSibling.y + 1.0F;
+-                this.mod = this.y - f;
+-            } else {
+-                this.y = f;
+-            }
++        this.executeShifts();
++        final float f = (this.children.get(0).y + this.children.get(this.children.size() - 1).y) / 2.0F;
++        if (this.previousSibling != null) {
++            this.y = this.previousSibling.y + 1.0F;
++            this.mod = this.y - f;
++        } else {
++            this.y = f;
+         }
+     }
+ 
+-    private float secondWalk(float debug1, int debug2, float debug3) {
+-        this.y += debug1;
+-        this.x = debug2;
+-        if (this.y < debug3) {
+-            debug3 = this.y;
+-        }
++    private float secondWalk(final float mod, final int x, float y) {
++        this.y += mod;
++        this.x = x;
++        if (this.y < y) y = this.y;
+ 
+-        for(TreeNodePosition treenodeposition : this.children) {
+-            debug3 = treenodeposition.secondWalk(debug1 + this.mod, debug2 + 1, debug3);
++        for (final TreeNodePosition child_nodePos : this.children) {
++            y = child_nodePos.secondWalk(mod + this.mod, x + 1, y);
+         }
+ 
+-        return debug3;
++        return y;
+     }
+ 
+-    private void thirdWalk(float debug1) {
+-        this.y += debug1;
++    private void thirdWalk(float y) {
++        this.y += y;
+ 
+-        for(TreeNodePosition treenodeposition : this.children) {
+-            treenodeposition.thirdWalk(debug1);
++        for (final TreeNodePosition child_nodePos : this.children) {
++            child_nodePos.thirdWalk(y);
+         }
+     }
+ 
+@@ -103,123 +117,100 @@ public class TreeNodePosition {
+         float f = 0.0F;
+         float f1 = 0.0F;
+ 
+-        for(int i = this.children.size() - 1; i >= 0; --i) {
+-            TreeNodePosition treenodeposition = this.children.get(i);
+-            treenodeposition.y += f;
+-            treenodeposition.mod += f;
+-            f1 += treenodeposition.change;
+-            f += treenodeposition.shift + f1;
++        for (int i = this.children.size() - 1; i >= 0; --i) {
++            final TreeNodePosition child_nodePos = this.children.get(i);
++            child_nodePos.y += f;
++            child_nodePos.mod += f;
++            f1 += child_nodePos.change;
++            f += child_nodePos.shift + f1;
+         }
+     }
+ 
+     @Nullable
+     private TreeNodePosition previousOrThread() {
+-        if (this.thread != null) {
++        if (this.thread != null)
+             return this.thread;
+-        } else {
+-            return !this.children.isEmpty() ? this.children.get(0) : null;
+-        }
++
++        return !this.children.isEmpty() ? this.children.get(0) : null;
+     }
+ 
+     @Nullable
+     private TreeNodePosition nextOrThread() {
+-        if (this.thread != null) {
++        if (this.thread != null)
+             return this.thread;
+-        } else {
+-            return !this.children.isEmpty() ? this.children.get(this.children.size() - 1) : null;
+-        }
++
++        return !this.children.isEmpty() ? this.children.get(this.children.size() - 1) : null;
+     }
+ 
+-    private TreeNodePosition apportion(TreeNodePosition debug1) {
+-        if (this.previousSibling == null) {
+-            return debug1;
+-        } else {
+-            TreeNodePosition treenodeposition = this;
+-            TreeNodePosition treenodeposition1 = this;
+-            TreeNodePosition treenodeposition2 = this.previousSibling;
+-            TreeNodePosition treenodeposition3 = this.parent.children.get(0);
++    private TreeNodePosition apportion(TreeNodePosition nodePosition) {
++        if (this.previousSibling != null) {
++            TreeNodePosition copyCat1 = this;
++            TreeNodePosition copyCat2 = this;
++            TreeNodePosition prevSibling = this.previousSibling;
++            TreeNodePosition firstChild = this.parent.children.get(0);
+             float f = this.mod;
+             float f1 = this.mod;
+-            float f2 = treenodeposition2.mod;
++            float f2 = prevSibling.mod;
+ 
+             float f3;
+-            for(f3 = treenodeposition3.mod;
+-                treenodeposition2.nextOrThread() != null && treenodeposition.previousOrThread() != null;
+-                f1 += treenodeposition1.mod
+-            ) {
+-                treenodeposition2 = treenodeposition2.nextOrThread();
+-                treenodeposition = treenodeposition.previousOrThread();
+-                treenodeposition3 = treenodeposition3.previousOrThread();
+-                treenodeposition1 = treenodeposition1.nextOrThread();
+-                treenodeposition1.ancestor = this;
+-                float f4 = treenodeposition2.y + f2 - (treenodeposition.y + f) + 1.0F;
++            for (f3 = firstChild.mod;
++                 prevSibling.nextOrThread() != null && copyCat1.previousOrThread() != null;
++                 f1 += copyCat2.mod) {
++                prevSibling = prevSibling.nextOrThread();
++                copyCat1 = copyCat1.previousOrThread();
++                firstChild = firstChild.previousOrThread();
++                copyCat2 = copyCat2.nextOrThread();
++                copyCat2.ancestor = this;
++                float f4 = prevSibling.y + f2 - (copyCat1.y + f) + 1.0F;
+                 if (f4 > 0.0F) {
+-                    treenodeposition2.getAncestor(this, debug1).moveSubtree(this, f4);
++                    prevSibling.getAncestor(this, nodePosition).moveSubtree(this, f4);
+                     f += f4;
+                     f1 += f4;
+                 }
+ 
+-                f2 += treenodeposition2.mod;
+-                f += treenodeposition.mod;
+-                f3 += treenodeposition3.mod;
++                f2 += prevSibling.mod;
++                f += copyCat1.mod;
++                f3 += firstChild.mod;
+             }
+ 
+-            if (treenodeposition2.nextOrThread() != null && treenodeposition1.nextOrThread() == null) {
+-                treenodeposition1.thread = treenodeposition2.nextOrThread();
+-                treenodeposition1.mod += f2 - f1;
++            if (prevSibling.nextOrThread() != null && copyCat2.nextOrThread() == null) {
++                copyCat2.thread = prevSibling.nextOrThread();
++                copyCat2.mod += f2 - f1;
+             } else {
+-                if (treenodeposition.previousOrThread() != null && treenodeposition3.previousOrThread() == null) {
+-                    treenodeposition3.thread = treenodeposition.previousOrThread();
+-                    treenodeposition3.mod += f - f3;
++                if (copyCat1.previousOrThread() != null && firstChild.previousOrThread() == null) {
++                    firstChild.thread = copyCat1.previousOrThread();
++                    firstChild.mod += f - f3;
+                 }
+ 
+-                debug1 = this;
++                nodePosition = this;
+             }
+ 
+-            return debug1;
+         }
++        return nodePosition;
+     }
+ 
+-    private void moveSubtree(TreeNodePosition debug1, float debug2) {
+-        float f = (float)(debug1.childIndex - this.childIndex);
++    private void moveSubtree(final TreeNodePosition nodePosition, final float change) {
++        final float f = (float) (nodePosition.childIndex - this.childIndex);
+         if (f != 0.0F) {
+-            debug1.change -= debug2 / f;
+-            this.change += debug2 / f;
++            nodePosition.change -= change / f;
++            this.change += change / f;
+         }
+ 
+-        debug1.shift += debug2;
+-        debug1.y += debug2;
+-        debug1.mod += debug2;
++        nodePosition.shift += change;
++        nodePosition.y += change;
++        nodePosition.mod += change;
+     }
+ 
+-    private TreeNodePosition getAncestor(TreeNodePosition debug1, TreeNodePosition debug2) {
+-        return this.ancestor != null && debug1.parent.children.contains(this.ancestor) ? this.ancestor : debug2;
++    private TreeNodePosition getAncestor(final TreeNodePosition nodePosition, final TreeNodePosition default_nodePos) {
++        return this.ancestor != null && nodePosition.parent.children.contains(this.ancestor) ? this.ancestor : default_nodePos;
+     }
+ 
+     private void finalizePosition() {
+-        if (this.advancement.getDisplay() != null) {
+-            this.advancement.getDisplay().setLocation((float)this.x, this.y);
+-        }
++        if (this.advancement.getDisplay() != null)
++            this.advancement.getDisplay().setLocation((float) this.x, this.y);
+ 
+-        if (!this.children.isEmpty()) {
+-            for(TreeNodePosition treenodeposition : this.children) {
+-                treenodeposition.finalizePosition();
+-            }
+-        }
+-    }
+-
+-    public static void run(Advancement debug0) {
+-        if (debug0.getDisplay() == null) {
+-            throw new IllegalArgumentException("Can't position children of an invisible root!");
+-        } else {
+-            TreeNodePosition treenodeposition = new TreeNodePosition(debug0, null, null, 1, 0);
+-            treenodeposition.firstWalk();
+-            float f = treenodeposition.secondWalk(0.0F, 0, treenodeposition.y);
+-            if (f < 0.0F) {
+-                treenodeposition.thirdWalk(-f);
+-            }
+-
+-            treenodeposition.finalizePosition();
+-        }
++        if (!this.children.isEmpty())
++            for (final TreeNodePosition child_nodePos : this.children)
++                child_nodePos.finalizePosition();
+     }
+ }

@@ -350,7 +350,7 @@ index c64a8bf52f0d2b949db47793530acfb54a0170a6..9d43999ff234a32c59b4f9f0521a7778
 +++ b/src/main/java/com/mojang/math/OctahedralGroup.java
 @@ -1,121 +1,35 @@
  package com.mojang.math;
-
+ 
  import com.google.common.collect.Maps;
 -import com.mojang.datafixers.util.Pair;
 -import it.unimi.dsi.fastutil.booleans.BooleanArrayList;
@@ -363,7 +363,7 @@ index c64a8bf52f0d2b949db47793530acfb54a0170a6..9d43999ff234a32c59b4f9f0521a7778
  import net.minecraft.core.Direction;
  import net.minecraft.core.FrontAndTop;
  import net.minecraft.util.StringRepresentable;
-
+ 
 +import javax.annotation.Nullable;
 +import java.util.Map;
 +
@@ -417,7 +417,7 @@ index c64a8bf52f0d2b949db47793530acfb54a0170a6..9d43999ff234a32c59b4f9f0521a7778
 -    ROT_90_REF_Z_NEG("rot_90_ref_z_neg", SymmetricGroup3.P213, false, true, true),
 -    ROT_90_REF_Z_POS("rot_90_ref_z_pos", SymmetricGroup3.P213, true, false, true);
 +    INVERT_Z("invert_z", SymmetricGroup3.P123, false, false, true);
-
+ 
 -    private final Matrix3f transformation;
      private final String name;
 -    @Nullable
@@ -431,18 +431,18 @@ index c64a8bf52f0d2b949db47793530acfb54a0170a6..9d43999ff234a32c59b4f9f0521a7778
 -        debug0 -> {
 -            Map<Pair<SymmetricGroup3, BooleanList>, OctahedralGroup> map = Arrays.stream(values())
 -                .collect(Collectors.toMap(debug0x -> Pair.of(debug0x.permutation, debug0x.packInversions()), debug0x -> debug0x));
--
+-    
 -            for(OctahedralGroup octahedralgroup : values()) {
 -                for(OctahedralGroup octahedralgroup1 : values()) {
 -                    BooleanList booleanlist = octahedralgroup.packInversions();
 -                    BooleanList booleanlist1 = octahedralgroup1.packInversions();
 -                    SymmetricGroup3 symmetricgroup3 = octahedralgroup1.permutation.compose(octahedralgroup.permutation);
 -                    BooleanArrayList booleanarraylist = new BooleanArrayList(3);
--
+-    
 -                    for(int i = 0; i < 3; ++i) {
 -                        booleanarraylist.add(booleanlist.getBoolean(i) ^ booleanlist1.getBoolean(octahedralgroup.permutation.permutation(i)));
 -                    }
--
+-    
 -                    debug0[octahedralgroup.ordinal()][octahedralgroup1.ordinal()] = map.get(Pair.of(symmetricgroup3, booleanarraylist));
 -                }
 -            }
@@ -470,7 +470,7 @@ index c64a8bf52f0d2b949db47793530acfb54a0170a6..9d43999ff234a32c59b4f9f0521a7778
 -    }
 +    @Nullable
 +    private Map<Direction, Direction> rotatedDirections;
-
+ 
 -    public OctahedralGroup compose(OctahedralGroup debug1) {
 -        return cayleyTable[this.ordinal()][debug1.ordinal()];
 +    OctahedralGroup(final String name, final SymmetricGroup3 permutation, final boolean invertX, final boolean invertY, final boolean invertZ) {
@@ -480,17 +480,17 @@ index c64a8bf52f0d2b949db47793530acfb54a0170a6..9d43999ff234a32c59b4f9f0521a7778
 +        this.invertZ = invertZ;
 +        this.permutation = permutation;
      }
-
+ 
      @Override
 @@ -128,38 +42,35 @@ public enum OctahedralGroup implements StringRepresentable {
          return this.name;
      }
-
+ 
 -    public Direction rotate(Direction debug1) {
 +    public Direction rotate(final Direction originDirection) {
          if (this.rotatedDirections == null) {
              this.rotatedDirections = Maps.newEnumMap(Direction.class);
-
+ 
 -            for(Direction direction : Direction.values()) {
 -                Direction.Axis direction$axis = direction.getAxis();
 -                Direction.AxisDirection direction$axisdirection = direction.getAxisDirection();
@@ -512,11 +512,11 @@ index c64a8bf52f0d2b949db47793530acfb54a0170a6..9d43999ff234a32c59b4f9f0521a7778
 +                this.rotatedDirections.put(direction, rotated);
              }
          }
-
+ 
 -        return this.rotatedDirections.get(debug1);
 +        return this.rotatedDirections.get(originDirection);
      }
-
+ 
 -    public boolean inverts(Direction.Axis debug1) {
 -        switch(debug1) {
 -            case X:
@@ -534,7 +534,7 @@ index c64a8bf52f0d2b949db47793530acfb54a0170a6..9d43999ff234a32c59b4f9f0521a7778
 +            default -> this.invertZ;
 +        };
      }
-
+ 
 -    public FrontAndTop rotate(FrontAndTop debug1) {
 -        return FrontAndTop.fromFrontAndTop(this.rotate(debug1.front()), this.rotate(debug1.top()));
 +    public FrontAndTop rotate(final FrontAndTop frontAndTop) {
@@ -547,14 +547,14 @@ index ebd54916399132431db8b0d7ef83556d7f317591..8031c43bf3e07f13709c082298abec5e
 +++ b/src/main/java/com/mojang/math/Quaternion.java
 @@ -1,56 +1,54 @@
  package com.mojang.math;
-
+ 
  public final class Quaternion {
 -    public static final Quaternion ONE = new Quaternion(0.0F, 0.0F, 0.0F, 1.0F);
      private float i;
      private float j;
      private float k;
      private float r;
-
+ 
 -    public Quaternion(float debug1, float debug2, float debug3, float debug4) {
 +    public Quaternion(final float debug1, final float debug2, final float debug3, final float debug4) {
          this.i = debug1;
@@ -562,7 +562,7 @@ index ebd54916399132431db8b0d7ef83556d7f317591..8031c43bf3e07f13709c082298abec5e
          this.k = debug3;
          this.r = debug4;
      }
-
+ 
 -    public Quaternion(Vector3f debug1, float debug2, boolean debug3) {
 -        if (debug3) {
 -            debug2 *= (float) (Math.PI / 180.0);
@@ -583,7 +583,7 @@ index ebd54916399132431db8b0d7ef83556d7f317591..8031c43bf3e07f13709c082298abec5e
 +        this.k = quaternion.k;
 +        this.r = quaternion.r;
 +    }
-
+ 
 -        float f = sin(debug2 / 2.0F);
 -        this.i = debug1.x() * f;
 -        this.j = debug1.y() * f;
@@ -592,7 +592,7 @@ index ebd54916399132431db8b0d7ef83556d7f317591..8031c43bf3e07f13709c082298abec5e
 +    private static float cos(final float n) {
 +        return (float) Math.cos(n);
      }
-
+ 
 -    public Quaternion(Quaternion debug1) {
 -        this.i = debug1.i;
 -        this.j = debug1.j;
@@ -601,7 +601,7 @@ index ebd54916399132431db8b0d7ef83556d7f317591..8031c43bf3e07f13709c082298abec5e
 +    private static float sin(final float n) {
 +        return (float) Math.sin(n);
      }
-
+ 
      @Override
 -    public boolean equals(Object debug1) {
 -        if (this == debug1) {
@@ -630,10 +630,10 @@ index ebd54916399132431db8b0d7ef83556d7f317591..8031c43bf3e07f13709c082298abec5e
          }
 +        return false;
      }
-
+ 
      @Override
 @@ -63,12 +61,10 @@ public final class Quaternion {
-
+ 
      @Override
      public String toString() {
 -        StringBuilder stringbuilder = new StringBuilder();
@@ -647,12 +647,12 @@ index ebd54916399132431db8b0d7ef83556d7f317591..8031c43bf3e07f13709c082298abec5e
 +                this.j() + "j + " +
 +                this.k() + "k]";
      }
-
+ 
      public float i() {
 @@ -87,15 +83,15 @@ public final class Quaternion {
          return this.r;
      }
-
+ 
 -    public void mul(Quaternion debug1) {
 +    public void mul(final Quaternion quaternion) {
          float f = this.i();
@@ -689,7 +689,7 @@ index 77d0561cb4cae5d84aaa6ec4d8983a313c2bf2c6..a3ca5d1bf75e7bd36b9498929a89fd7f
 +++ b/src/main/java/com/mojang/math/SymmetricGroup3.java
 @@ -1,50 +1,17 @@
  package com.mojang.math;
-
+ 
 -import java.util.Arrays;
 -import net.minecraft.Util;
 -
@@ -700,7 +700,7 @@ index 77d0561cb4cae5d84aaa6ec4d8983a313c2bf2c6..a3ca5d1bf75e7bd36b9498929a89fd7f
 -    P231(1, 2, 0),
 -    P312(2, 0, 1),
      P321(2, 1, 0);
-
+ 
      private final int[] permutation;
 -    private final Matrix3f transformation;
 -    private static final SymmetricGroup3[][] cayleyTable = Util.make(new SymmetricGroup3[values().length][values().length], debug0 -> {
@@ -717,7 +717,7 @@ index 77d0561cb4cae5d84aaa6ec4d8983a313c2bf2c6..a3ca5d1bf75e7bd36b9498929a89fd7f
 -            }
 -        }
 -    });
-
+ 
 -    private SymmetricGroup3(int debug3, int debug4, int debug5) {
 -        this.permutation = new int[]{debug3, debug4, debug5};
 -        this.transformation = new Matrix3f();
@@ -727,13 +727,13 @@ index 77d0561cb4cae5d84aaa6ec4d8983a313c2bf2c6..a3ca5d1bf75e7bd36b9498929a89fd7f
 +    SymmetricGroup3(final int n1, final int n2, final int n3) {
 +        this.permutation = new int[]{n1, n2, n3};
      }
-
+ 
 -    public SymmetricGroup3 compose(SymmetricGroup3 debug1) {
 -        return cayleyTable[this.ordinal()][debug1.ordinal()];
 +    public int permutation(int index) {
 +        return this.permutation[index];
      }
-
+ 
 -    public int permutation(int debug1) {
 -        return this.permutation[debug1];
 -    }
@@ -748,7 +748,7 @@ index 53f76362573e1b00ac367834e30bf75f89b531c4..c7c82257673bd2630b62c55812f6330b
 +++ b/src/main/java/com/mojang/math/Vector3f.java
 @@ -3,45 +3,29 @@ package com.mojang.math;
  import net.minecraft.world.phys.Vec3;
-
+ 
  public final class Vector3f {
 -    public static Vector3f XN = new Vector3f(-1.0F, 0.0F, 0.0F);
 -    public static Vector3f XP = new Vector3f(1.0F, 0.0F, 0.0F);
@@ -759,14 +759,14 @@ index 53f76362573e1b00ac367834e30bf75f89b531c4..c7c82257673bd2630b62c55812f6330b
      private float x;
      private float y;
      private float z;
-
+ 
 -    public Vector3f() {
 +    public Vector3f(final float x, final float y, final float z) {
 +        this.x = x;
 +        this.y = y;
 +        this.z = z;
      }
-
+ 
 -    public Vector3f(float debug1, float debug2, float debug3) {
 -        this.x = debug1;
 -        this.y = debug2;
@@ -778,7 +778,7 @@ index 53f76362573e1b00ac367834e30bf75f89b531c4..c7c82257673bd2630b62c55812f6330b
 +    public Vector3f(final Vec3 vec3) {
 +        this((float) vec3.x, (float) vec3.y, (float) vec3.z);
      }
-
+ 
      @Override
 -    public boolean equals(Object debug1) {
 -        if (this == debug1) {
@@ -803,12 +803,12 @@ index 53f76362573e1b00ac367834e30bf75f89b531c4..c7c82257673bd2630b62c55812f6330b
          }
 +        return false;
      }
-
+ 
      @Override
 @@ -63,19 +47,20 @@ public final class Vector3f {
          return this.z;
      }
-
+ 
 -    public void set(float debug1, float debug2, float debug3) {
 -        this.x = debug1;
 -        this.y = debug2;
@@ -818,7 +818,7 @@ index 53f76362573e1b00ac367834e30bf75f89b531c4..c7c82257673bd2630b62c55812f6330b
 +        this.y = y;
 +        this.z = z;
      }
-
+ 
 -    public void transform(Quaternion debug1) {
 -        Quaternion quaternion = new Quaternion(debug1);
 -        quaternion.mul(new Quaternion(this.x(), this.y(), this.z(), 0.0F));
@@ -835,5 +835,5 @@ index 53f76362573e1b00ac367834e30bf75f89b531c4..c7c82257673bd2630b62c55812f6330b
 +
 +        this.set(transformed.i(), transformed.j(), transformed.k());
      }
-
+ 
      @Override

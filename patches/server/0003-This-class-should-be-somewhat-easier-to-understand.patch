@@ -16,7 +16,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 -import java.util.function.Predicate;
  import net.minecraft.core.BlockPos;
  import net.minecraft.core.Direction;
-
+ 
 +import java.util.function.Predicate;
 +
  public class BlockUtil {
@@ -71,7 +71,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 +
 +            intBounds[direction1_RANGE_LIMIT - direction1_RANGE] = new BlockUtil.IntBounds(min, max);
          }
-
+ 
 -        for(int l2 = 1; l2 <= j; ++l2) {
 -            BlockUtil.IntBounds blockutil$intbounds2 = ablockutil$intbounds[k + l2 - 1];
 -            ablockutil$intbounds[k + l2] = new BlockUtil.IntBounds(
@@ -87,7 +87,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 +
 +            intBounds[direction1_RANGE_LIMIT + oppos_direct1_RANGE] = new BlockUtil.IntBounds(min, max);
          }
-
+ 
 -        int i3 = 0;
 -        int j3 = 0;
 -        int j1 = 0;
@@ -116,7 +116,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 +
 +                ints[index] = isInRange ? direction2_RANGE_LIMIT + intBound.max() + 1 - copyCat : 0;
              }
-
+ 
 -            Pair<BlockUtil.IntBounds, Integer> pair = getMaxRectangleLocation(aint);
 -            BlockUtil.IntBounds blockutil$intbounds3 = (BlockUtil.IntBounds)pair.getFirst();
 -            int k3 = 1 + blockutil$intbounds3.max - blockutil$intbounds3.min;
@@ -140,7 +140,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 +                axis2Size = side1_length;
              }
          }
-
+ 
 -        return new BlockUtil.FoundRectangle(debug0.relative(debug1, i3 - k).relative(debug3, j3 - l), j1, k1);
 +        final int direction1_BLOCK_RANGE = ministry - direction1_RANGE_LIMIT;
 +        final int direction2_BLOCK_RANGE = department - direction2_RANGE_LIMIT;
@@ -148,7 +148,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 +
 +        return new BlockUtil.FoundRectangle(cornerPosition, axis1Size, axis2Size);
      }
-
+ 
 -    private static int getLimit(Predicate<BlockPos> debug0, BlockPos.MutableBlockPos debug1, Direction debug2, int debug3) {
 +    private static int getLimit(final Predicate<BlockPos> predicate, final BlockPos.MutableBlockPos mutableBPos, final Direction direction, final int range) {
          int i = 0;
@@ -157,10 +157,10 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 -            ++i;
 -        }
 +        while (i < range && predicate.test(mutableBPos.move(direction))) ++i;
-
+ 
          return i;
      }
-
+ 
      @VisibleForTesting
 -    static Pair<BlockUtil.IntBounds, Integer> getMaxRectangleLocation(int[] debug0) {
 -        int i = 0;
@@ -194,7 +194,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 +                    intStack.push(index);
                      break;
                  }
-
+ 
 -                intstack.popInt();
 -                int k1 = intstack.isEmpty() ? 0 : intstack.topInt() + 1;
 -                if (j1 * (l - k1) > k * (j - i)) {
@@ -209,14 +209,14 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 +                    side_length = origin_topInt;
                  }
              }
-
+ 
 -            if (intstack.isEmpty()) {
 -                intstack.push(l);
 +            if (intStack.isEmpty()) {
 +                intStack.push(index);
              }
          }
-
+ 
 -        return new Pair(new BlockUtil.IntBounds(i, j - 1), k);
 -    }
 -
@@ -225,7 +225,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 -        public final int axis1Size;
 -        public final int axis2Size;
 +        final IntBounds intBound = new BlockUtil.IntBounds(min, max - 1);
-
+ 
 -        public FoundRectangle(BlockPos debug1, int debug2, int debug3) {
 -            this.minCorner = debug1;
 -            this.axis1Size = debug2;
@@ -233,7 +233,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 -        }
 +        return new Pair<>(intBound, side_length);
      }
-
+ 
 -    public static class IntBounds {
 -        public final int min;
 -        public final int max;
@@ -244,7 +244,7 @@ index 77b4a5b35989d6fc722d910f99a6dd1748283e45..ad8bc3647a0ee942c9510a7ff11052a3
 -        }
 +    public record FoundRectangle(BlockPos corner, int axis1Size, int axis2Size) {
 +    }
-
+ 
 -        @Override
 -        public String toString() {
 -            return "IntBounds{min=" + this.min + ", max=" + this.max + '}';

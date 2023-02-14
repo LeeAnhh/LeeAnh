@@ -10,7 +10,7 @@ index ce4e380328e6dea8e78e1a4799f90161bc6cac94..b51c3a7334279c98899a92a09ea20702
 +++ b/src/main/java/net/minecraft/ChatFormatting.java
 @@ -1,14 +1,11 @@
  package net.minecraft;
-
+ 
  import com.google.common.collect.Lists;
 -import java.util.Arrays;
 -import java.util.Collection;
@@ -23,7 +23,7 @@ index ce4e380328e6dea8e78e1a4799f90161bc6cac94..b51c3a7334279c98899a92a09ea20702
  import java.util.regex.Pattern;
  import java.util.stream.Collectors;
 -import javax.annotation.Nullable;
-
+ 
  public enum ChatFormatting {
      BLACK("BLACK", '0', 0, 0),
 @@ -32,38 +29,79 @@ public enum ChatFormatting {
@@ -32,7 +32,7 @@ index ce4e380328e6dea8e78e1a4799f90161bc6cac94..b51c3a7334279c98899a92a09ea20702
      ITALIC("ITALIC", 'o', true),
 -    RESET("RESET", 'r', -1, null);
 +    RESET("RESET", 'r', false);
-
+ 
      private static final Map<String, ChatFormatting> FORMATTING_BY_NAME = Arrays.stream(values())
 -        .collect(Collectors.toMap(debug0 -> cleanName(debug0.name), debug0 -> debug0));
 -    private static final Pattern STRIP_FORMATTING_PATTERN = Pattern.compile("(?i)\u00a7[0-9A-FK-OR]");
@@ -46,7 +46,7 @@ index ce4e380328e6dea8e78e1a4799f90161bc6cac94..b51c3a7334279c98899a92a09ea20702
      @Nullable
 -    private final Integer color;
 +    private final Integer decimalColorCode;
-
+ 
 -    private static String cleanName(String debug0) {
 -        return debug0.toLowerCase(Locale.ROOT).replaceAll("[^a-z]", "");
 +    ChatFormatting(final String color,
@@ -55,7 +55,7 @@ index ce4e380328e6dea8e78e1a4799f90161bc6cac94..b51c3a7334279c98899a92a09ea20702
 +                   final @Nullable Integer decimalColorCode) {
 +        this(color, colorCode, false, colorId, decimalColorCode);
      }
-
+ 
 -    private ChatFormatting(String debug3, char debug4, int debug5, @Nullable Integer debug6) {
 -        this(debug3, debug4, false, debug5, debug6);
 +    ChatFormatting(final String color,
@@ -63,7 +63,7 @@ index ce4e380328e6dea8e78e1a4799f90161bc6cac94..b51c3a7334279c98899a92a09ea20702
 +                   final boolean isFormat) {
 +        this(color, colorCode, isFormat, -1, null);
      }
-
+ 
 -    private ChatFormatting(String debug3, char debug4, boolean debug5) {
 -        this(debug3, debug4, debug5, -1, null);
 +    ChatFormatting(final String color,
@@ -91,7 +91,7 @@ index ce4e380328e6dea8e78e1a4799f90161bc6cac94..b51c3a7334279c98899a92a09ea20702
 +    public static ChatFormatting getByName(final @Nullable String name) {
 +        return name == null ? null : FORMATTING_BY_NAME.get(cleanName(name));
      }
-
+ 
 -    private ChatFormatting(String debug3, char debug4, boolean debug5, int debug6, @Nullable Integer debug7) {
 -        this.name = debug3;
 -        this.code = debug4;
@@ -122,18 +122,18 @@ index ce4e380328e6dea8e78e1a4799f90161bc6cac94..b51c3a7334279c98899a92a09ea20702
 +
 +        return list;
      }
-
+ 
      public int getId() {
 @@ -79,8 +117,8 @@ public enum ChatFormatting {
      }
-
+ 
      @Nullable
 -    public Integer getColor() {
 -        return this.color;
 +    public Integer getDecimalColorCode() {
 +        return this.decimalColorCode;
      }
-
+ 
      public String getName() {
 @@ -91,41 +129,4 @@ public enum ChatFormatting {
      public String toString() {
